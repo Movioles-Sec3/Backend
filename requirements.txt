@@ -1,1 +1,24 @@
+# --- Core framework ---
+fastapi
+uvicorn[standard]
+
+# --- Database & ORM ---
+sqlalchemy[asyncio]
+aiomysql          # MySQL async driver
+alembic           # Database migrations
+
+# --- Data validation / settings ---
+pydantic
+pydantic-settings
+
+# --- Security & auth ---
+passlib[bcrypt]   # password hashing
+pyjwt             # JWT handling (optional if you roll your own HMAC)
+
+# --- QR code generation ---
+qrcode[pil]
+pillow            # required for QR image manipulation
+
+# --- Utilities ---
+python-multipart  # for handling forms/uploads if needed
 
