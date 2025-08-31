@@ -12,7 +12,7 @@ from schemas import TokenData
 # Configuración de seguridad
 SECRET_KEY = "tu-clave-secreta-muy-segura-cambiar-en-produccion"  # Cambiar en producción
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
