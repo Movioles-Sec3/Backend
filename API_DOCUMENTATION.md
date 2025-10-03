@@ -8,6 +8,7 @@
 
 ## Índice
 
+- [Resumen de Endpoints](#resumen-de-endpoints)
 - [Autenticación](#autenticación)
 - [Endpoints Generales](#endpoints-generales)
 - [Usuarios](#usuarios)
@@ -15,6 +16,38 @@
 - [Compras](#compras)
 - [Modelos de Datos](#modelos-de-datos)
 - [Códigos de Estado](#códigos-de-estado)
+
+---
+
+## Resumen de Endpoints
+
+### Tabla de Endpoints Disponibles (15 total)
+
+| Método | Endpoint | Descripción | Auth Requerida |
+|--------|----------|-------------|----------------|
+| **GENERALES** | | | |
+| GET | `/` | Bienvenida a la API | ❌ |
+| GET | `/health` | Verificación de salud | ❌ |
+| **USUARIOS** | | | |
+| POST | `/usuarios/` | Registro de usuario | ❌ |
+| POST | `/usuarios/token` | Login (obtener token JWT) | ❌ |
+| GET | `/usuarios/me` | Obtener perfil del usuario actual | ✅ |
+| POST | `/usuarios/me/recargar` | Recargar saldo del usuario | ✅ |
+| **PRODUCTOS** | | | |
+| GET | `/productos/` | Listar productos (filtrar por categoría) | ❌ |
+| GET | `/productos/{producto_id}` | Obtener producto específico | ❌ |
+| GET | `/productos/tipos/` | Listar categorías/tipos de producto | ❌ |
+| POST | `/productos/tipos/` | Crear nueva categoría (Admin) | ❌* |
+| POST | `/productos/` | Crear nuevo producto (Admin) | ❌* |
+| PUT | `/productos/{producto_id}` | Actualizar producto (Admin) | ❌* |
+| **COMPRAS** | | | |
+| POST | `/compras/` | Crear compra (realizar pedido) | ✅ |
+| GET | `/compras/me` | Historial de compras del usuario | ✅ |
+| GET | `/compras/pendientes` | Listar órdenes pendientes (Staff) | ❌* |
+| PUT | `/compras/{compra_id}/estado` | Actualizar estado de compra (Staff) | ❌* |
+| POST | `/compras/qr/escanear` | Escanear QR para entregar orden (Staff) | ❌* |
+
+**Nota:** Los endpoints marcados con ❌* deberían requerir autenticación de Admin/Staff en producción, pero actualmente son públicos.
 
 ---
 
@@ -193,22 +226,23 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 
 ## Productos
 
-### 📋 Listar Productos
+### 📋 Listar Productos / Obtener Productos por Categoría
 
 **Endpoint:** `GET /productos/`
 
-**Descripción:** Obtiene la lista de productos (menú). Permite filtrar por tipo y disponibilidad.
+**Descripción:** Obtiene la lista de productos (menú). Permite filtrar por categoría (tipo) y disponibilidad. **Este endpoint se usa tanto para listar todos los productos como para obtener productos de una categoría específica.**
 
 **Autenticación:** No requerida
 
 **Query Parameters:**
-- `id_tipo` (opcional): Filtrar por tipo de producto (int)
+- `id_tipo` (opcional): Filtrar por tipo de producto / categoría (int). **Úsalo para obtener solo productos de una categoría específica**
 - `disponible` (opcional, default=true): Mostrar solo productos disponibles (bool)
 
-**Ejemplos:**
-- `/productos/` - Todos los productos disponibles
-- `/productos/?id_tipo=1` - Productos del tipo 1 (ej: Bebidas)
-- `/productos/?disponible=false` - Productos no disponibles
+**Casos de uso:**
+- **Listar todos los productos:** `/productos/`
+- **Productos de una categoría específica:** `/productos/?id_tipo=1` (ej: solo Bebidas Alcohólicas)
+- **Productos no disponibles:** `/productos/?disponible=false`
+- **Productos de una categoría que no están disponibles:** `/productos/?id_tipo=2&disponible=false`
 
 **Respuesta exitosa (200):**
 ```json
