@@ -14,6 +14,7 @@
 - [Usuarios](#usuarios)
 - [Productos](#productos)
 - [Compras](#compras)
+- [Analytics](#analytics)
 - [Modelos de Datos](#modelos-de-datos)
 - [Códigos de Estado](#códigos-de-estado)
 - [Medición de Tiempos en Compras](#-medición-de-tiempos-en-compras)
@@ -49,6 +50,8 @@
 | GET | `/compras/pendientes` | Listar órdenes pendientes (Staff) | ❌* |
 | PUT | `/compras/{compra_id}/estado` | Actualizar estado de compra (Staff) | ❌* |
 | POST | `/compras/qr/escanear` | Escanear QR para entregar orden (Staff) | ❌* |
+| **ANALYTICS** | | | |
+| GET | `/analytics/reorders-by-category` | Reordenes por categoría y hora | ❌ |
 
 **Nota:** Los endpoints marcados con ❌* deberían requerir autenticación de Admin/Staff en producción, pero actualmente son públicos.
 
@@ -868,6 +871,59 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 - **400 Bad Request:** 
   - El código QR ya fue canjeado/expirado
   - La orden no está lista para entregar (debe estar en estado `LISTO`)
+## Analytics
+
+### 📊 Reordenes por Categoría y Horas del Día
+
+**Endpoint:** `GET /analytics/reorders-by-category`
+
+**Descripción:** Identifica qué categorías de productos son más frecuentemente reordenadas durante eventos y en qué horas del día ocurren esos reordenes. Un "reorder" se define como una compra que incluye una categoría que el mismo usuario ya había comprado anteriormente (antes del periodo consultado o previamente dentro del periodo). Cada compra contribuye como máximo 1 por categoría, independientemente de cuántos productos de esa categoría incluya.
+
+**Autenticación:** No requerida
+
+**Query Parameters:**
+- `start` (opcional, ISO-8601 UTC): Inicio del rango (incluyente). Por defecto, últimos 30 días.
+- `end` (opcional, ISO-8601 UTC): Fin del rango (excluyente). Por defecto, ahora.
+- `timezone_offset_minutes` (opcional, int, default=0): Offset de zona horaria del cliente en minutos (ej: `-300` para UTC-5). Se usa para agrupar por hora local.
+
+**Respuesta (200):**
+```json
+{
+  "start": "2025-09-04T00:00:00Z",
+  "end": "2025-10-04T00:00:00Z",
+  "timezone_offset_minutes": -300,
+  "categories": [
+    {
+      "categoria_id": 2,
+      "categoria_nombre": "Cócteles",
+      "reorder_count": 18,
+      "hour_distribution": [
+        { "hour": 20, "count": 5 },
+        { "hour": 21, "count": 7 },
+        { "hour": 22, "count": 6 }
+      ],
+      "peak_hours": [21]
+    },
+    {
+      "categoria_id": 1,
+      "categoria_nombre": "Cervezas",
+      "reorder_count": 12,
+      "hour_distribution": [
+        { "hour": 18, "count": 3 },
+        { "hour": 19, "count": 3 },
+        { "hour": 23, "count": 6 }
+      ],
+      "peak_hours": [23]
+    }
+  ]
+}
+```
+
+**Notas:**
+- Se consideran compras con estado `PAGADO`, `EN_PREPARACION`, `LISTO` o `ENTREGADO`.
+- La hora se convierte a local usando `timezone_offset_minutes` antes de agrupar.
+- Útil para planear staffing y promociones por categoría y horario.
+
 
 ---
 
