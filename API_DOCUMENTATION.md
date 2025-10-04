@@ -16,12 +16,14 @@
 - [Compras](#compras)
 - [Modelos de Datos](#modelos-de-datos)
 - [Códigos de Estado](#códigos-de-estado)
+- [Medición de Tiempos en Compras](#-medición-de-tiempos-en-compras)
+- [Ejemplos de Flujo Completo](#ejemplos-de-flujo-completo)
 
 ---
 
 ## Resumen de Endpoints
 
-### Tabla de Endpoints Disponibles (15 total)
+### Tabla de Endpoints Disponibles (16 total)
 
 | Método | Endpoint | Descripción | Auth Requerida |
 |--------|----------|-------------|----------------|
@@ -37,6 +39,7 @@
 | GET | `/productos/` | Listar productos (filtrar por categoría) | ❌ |
 | GET | `/productos/{producto_id}` | Obtener producto específico | ❌ |
 | GET | `/productos/tipos/` | Listar categorías/tipos de producto | ❌ |
+| GET | `/productos/recomendados` | Obtener productos recomendados (más vendidos) | ❌ |
 | POST | `/productos/tipos/` | Crear nueva categoría (Admin) | ❌* |
 | POST | `/productos/` | Crear nuevo producto (Admin) | ❌* |
 | PUT | `/productos/{producto_id}` | Actualizar producto (Admin) | ❌* |
@@ -226,6 +229,9 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 
 ## Productos
 
+> ⚠️ **Nota importante sobre el orden de los endpoints:**  
+> En esta documentación, los endpoints están listados en el **orden correcto de implementación**. Las rutas específicas (como `/recomendados`, `/tipos/`) deben definirse ANTES que las rutas con parámetros dinámicos (como `/{producto_id}`) para evitar conflictos de routing en FastAPI.
+
 ### 📋 Listar Productos / Obtener Productos por Categoría
 
 **Endpoint:** `GET /productos/`
@@ -278,41 +284,6 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 
 ---
 
-### 🔍 Obtener Producto por ID
-
-**Endpoint:** `GET /productos/{producto_id}`
-
-**Descripción:** Obtiene los detalles de un producto específico.
-
-**Autenticación:** No requerida
-
-**Path Parameters:**
-- `producto_id`: ID del producto (int)
-
-**Ejemplo:** `/productos/1`
-
-**Respuesta exitosa (200):**
-```json
-{
-  "id": 1,
-  "nombre": "Cerveza Artesanal IPA",
-  "descripcion": "Cerveza con notas cítricas y amargor equilibrado",
-  "imagen_url": "https://example.com/cerveza-ipa.jpg",
-  "precio": 8500.0,
-  "disponible": true,
-  "id_tipo": 1,
-  "tipo_producto": {
-    "id": 1,
-    "nombre": "Bebidas Alcohólicas"
-  }
-}
-```
-
-**Errores posibles:**
-- **404 Not Found:** Producto no encontrado
-
----
-
 ### 🏷️ Listar Tipos de Producto
 
 **Endpoint:** `GET /productos/tipos/`
@@ -342,6 +313,117 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
   }
 ]
 ```
+
+---
+
+### ⭐ Obtener Productos Recomendados
+
+**Endpoint:** `GET /productos/recomendados`
+
+**Descripción:** Obtiene una lista de productos recomendados basados en popularidad (los más vendidos). Sistema simple de recomendación que funciona incluso con pocos datos. Útil para mostrar en la pantalla principal o sugerir productos a los clientes.
+
+**Autenticación:** No requerida
+
+**Query Parameters:**
+- `limit` (opcional, default=5): Número de productos recomendados a retornar (int)
+- `categoria_id` (opcional): Filtrar recomendaciones por categoría específica (int)
+
+**Casos de uso:**
+- **Top 5 productos más populares:** `/productos/recomendados`
+- **Top 10 productos:** `/productos/recomendados?limit=10`
+- **Top 5 bebidas más populares:** `/productos/recomendados?categoria_id=1`
+- **Top 3 comidas:** `/productos/recomendados?limit=3&categoria_id=2`
+
+**Respuesta exitosa (200):**
+```json
+[
+  {
+    "id": 2,
+    "nombre": "Club Colombia",
+    "descripcion": "Cerveza colombiana premium",
+    "imagen_url": "https://example.com/club.jpg",
+    "precio": 7000.0,
+    "disponible": true,
+    "id_tipo": 1,
+    "tipo_producto": {
+      "id": 1,
+      "nombre": "Cervezas"
+    }
+  },
+  {
+    "id": 5,
+    "nombre": "Nachos con Queso",
+    "descripcion": "Nachos crujientes con queso cheddar fundido",
+    "imagen_url": "https://example.com/nachos.jpg",
+    "precio": 12000.0,
+    "disponible": true,
+    "id_tipo": 2,
+    "tipo_producto": {
+      "id": 2,
+      "nombre": "Comida"
+    }
+  },
+  {
+    "id": 1,
+    "nombre": "Cerveza Artesanal IPA",
+    "descripcion": "Cerveza con notas cítricas y amargor equilibrado",
+    "imagen_url": "https://example.com/cerveza-ipa.jpg",
+    "precio": 8500.0,
+    "disponible": true,
+    "id_tipo": 1,
+    "tipo_producto": {
+      "id": 1,
+      "nombre": "Cervezas"
+    }
+  }
+]
+```
+
+**Cómo funciona:**
+- Cuenta cuántas veces se ha comprado cada producto (en `detalles_compra`)
+- Ordena por cantidad de ventas de mayor a menor
+- Retorna los productos más populares
+- Si un producto nunca se ha vendido, aparecerá al final
+- Solo muestra productos disponibles
+
+**Nota:** Los productos se ordenan por popularidad (más vendidos primero). Si hay empate en ventas, se ordenan por ID. Funciona perfectamente incluso sin datos históricos de ventas.
+
+---
+
+### 🔍 Obtener Producto por ID
+
+**Endpoint:** `GET /productos/{producto_id}`
+
+**Descripción:** Obtiene los detalles de un producto específico por su ID.
+
+**Autenticación:** No requerida
+
+**Path Parameters:**
+- `producto_id`: ID del producto (int)
+
+**Ejemplo:** `/productos/1`
+
+**Respuesta exitosa (200):**
+```json
+{
+  "id": 1,
+  "nombre": "Cerveza Artesanal IPA",
+  "descripcion": "Cerveza con notas cítricas y amargor equilibrado",
+  "imagen_url": "https://example.com/cerveza-ipa.jpg",
+  "precio": 8500.0,
+  "disponible": true,
+  "id_tipo": 1,
+  "tipo_producto": {
+    "id": 1,
+    "nombre": "Bebidas Alcohólicas"
+  }
+}
+```
+
+**Errores posibles:**
+- **404 Not Found:** Producto no encontrado
+
+**Nota:** ⚠️ Este endpoint debe estar definido DESPUÉS de las rutas específicas (`/recomendados`, `/tipos/`) para evitar conflictos de routing.
 
 ---
 
@@ -544,9 +626,18 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
   "qr": {
     "codigo_qr_hash": "a3f8c9d2e1b4f7a6c3d8e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2",
     "estado": "ACTIVO"
-  }
+  },
+  "fecha_en_preparacion": null,
+  "fecha_listo": null,
+  "fecha_entregado": null,
+  "tiempo_hasta_preparacion": null,
+  "tiempo_preparacion": null,
+  "tiempo_espera_entrega": null,
+  "tiempo_total": null
 }
 ```
+
+**Nota:** En una compra recién creada, todos los campos de timestamps y tiempos calculados son `null` porque aún no ha pasado por las etapas siguientes.
 
 **Errores posibles:**
 - **400 Bad Request:** 
@@ -573,7 +664,7 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 [
   {
     "id": 14,
-    "fecha_hora": "2025-10-02T18:45:00",
+    "fecha_hora": "2025-10-04T18:45:00Z",
     "total": 23500.0,
     "estado": "ENTREGADO",
     "detalles": [
@@ -599,21 +690,41 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
     "qr": {
       "codigo_qr_hash": "b4e9d3f2a1c5e8f7b6a9d0c1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1",
       "estado": "CANJEADO"
-    }
+    },
+    "fecha_en_preparacion": "2025-10-04T18:47:30Z",
+    "fecha_listo": "2025-10-04T18:55:15Z",
+    "fecha_entregado": "2025-10-04T19:02:45Z",
+    "tiempo_hasta_preparacion": 150.0,
+    "tiempo_preparacion": 465.0,
+    "tiempo_espera_entrega": 450.0,
+    "tiempo_total": 1065.0
   },
   {
     "id": 15,
-    "fecha_hora": "2025-10-03T14:30:00",
+    "fecha_hora": "2025-10-04T14:30:00Z",
     "total": 32000.0,
     "estado": "LISTO",
     "detalles": [...],
     "qr": {
       "codigo_qr_hash": "a3f8c9d2e1b4f7a6c3d8e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2",
       "estado": "ACTIVO"
-    }
+    },
+    "fecha_en_preparacion": "2025-10-04T14:32:00Z",
+    "fecha_listo": "2025-10-04T14:45:00Z",
+    "fecha_entregado": null,
+    "tiempo_hasta_preparacion": 120.0,
+    "tiempo_preparacion": 780.0,
+    "tiempo_espera_entrega": null,
+    "tiempo_total": null
   }
 ]
 ```
+
+**Ejemplo de interpretación de tiempos (Compra #14):**
+- ⏱️ **150 segundos** (2.5 min) - Tiempo hasta que el staff empezó a preparar
+- ⏱️ **465 segundos** (7.75 min) - Duración de la preparación
+- ⏱️ **450 segundos** (7.5 min) - Tiempo que el cliente tardó en recoger
+- ⏱️ **1065 segundos** (17.75 min) - Tiempo total del proceso
 
 **Errores posibles:**
 - **401 Unauthorized:** Token inválido o expirado
@@ -662,7 +773,7 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 
 **Endpoint:** `PUT /compras/{compra_id}/estado`
 
-**Descripción:** Actualiza el estado de una compra. Solo se permiten transiciones válidas.
+**Descripción:** Actualiza el estado de una compra. Solo se permiten transiciones válidas. **Registra automáticamente el timestamp correspondiente** (`fecha_en_preparacion`, `fecha_listo` o `fecha_entregado`) según el nuevo estado.
 
 **Autenticación:** No requerida (⚠️ En producción debe protegerse con autenticación de staff)
 
@@ -692,16 +803,25 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 ```json
 {
   "id": 15,
-  "fecha_hora": "2025-10-03T14:30:00",
+  "fecha_hora": "2025-10-04T14:30:00Z",
   "total": 32000.0,
   "estado": "EN_PREPARACION",
   "detalles": [...],
   "qr": {
     "codigo_qr_hash": "a3f8c9d2e1b4f7a6c3d8e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2",
     "estado": "ACTIVO"
-  }
+  },
+  "fecha_en_preparacion": "2025-10-04T14:32:00Z",
+  "fecha_listo": null,
+  "fecha_entregado": null,
+  "tiempo_hasta_preparacion": 120.0,
+  "tiempo_preparacion": null,
+  "tiempo_espera_entrega": null,
+  "tiempo_total": null
 }
 ```
+
+**Nota:** Al cambiar el estado, se registra automáticamente el timestamp correspondiente y se calculan los tiempos disponibles hasta ese momento.
 
 **Errores posibles:**
 - **404 Not Found:** Compra no encontrada
@@ -713,7 +833,7 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 
 **Endpoint:** `POST /compras/qr/escanear`
 
-**Descripción:** Verifica un código QR y procesa la entrega de la orden. Marca el QR como canjeado y la compra como entregada.
+**Descripción:** Verifica un código QR y procesa la entrega de la orden. Marca el QR como canjeado, la compra como entregada y **registra el timestamp de entrega** (`fecha_entregado`).
 
 **Autenticación:** No requerida (⚠️ En producción debe protegerse con autenticación de staff)
 
@@ -812,13 +932,26 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 ```json
 {
   "id": "integer",
-  "fecha_hora": "datetime (ISO 8601)",
+  "fecha_hora": "datetime (ISO 8601, UTC)",
   "total": "float",
   "estado": "EstadoCompra",
   "detalles": "DetalleCompra[]",
-  "qr": "QR | null"
+  "qr": "QR | null",
+  
+  // Timestamps de cada etapa (UTC)
+  "fecha_en_preparacion": "datetime | null",
+  "fecha_listo": "datetime | null",
+  "fecha_entregado": "datetime | null",
+  
+  // Tiempos calculados automáticamente (en segundos)
+  "tiempo_hasta_preparacion": "float | null",  // Tiempo desde creación hasta inicio de preparación
+  "tiempo_preparacion": "float | null",        // Tiempo de preparación (desde inicio hasta listo)
+  "tiempo_espera_entrega": "float | null",     // Tiempo de espera para recoger (desde listo hasta entregado)
+  "tiempo_total": "float | null"               // Tiempo total del proceso (desde creación hasta entrega)
 }
 ```
+
+**Nota sobre tiempos:** Los tiempos calculados se devuelven en **segundos**. Divide entre 60 para obtener minutos. Los timestamps se guardan en **UTC**.
 
 ---
 
@@ -883,6 +1016,62 @@ ACTIVO = "ACTIVO"        # QR válido, puede ser canjeado
 CANJEADO = "CANJEADO"    # QR ya fue usado
 EXPIRADO = "EXPIRADO"    # QR expirado (no implementado aún)
 ```
+
+---
+
+## 📊 Medición de Tiempos en Compras
+
+El sistema registra automáticamente **timestamps en UTC** cada vez que una compra cambia de estado, permitiendo medir con precisión los tiempos de cada etapa del proceso.
+
+### Timestamps Registrados
+
+| Campo | Cuándo se registra | Descripción |
+|-------|-------------------|-------------|
+| `fecha_hora` | Al crear la compra | Momento en que el usuario realiza y paga el pedido |
+| `fecha_en_preparacion` | Al cambiar a `EN_PREPARACION` | Momento en que el staff comienza a preparar la orden |
+| `fecha_listo` | Al cambiar a `LISTO` | Momento en que la orden está lista para recoger |
+| `fecha_entregado` | Al cambiar a `ENTREGADO` o escanear QR | Momento en que se entrega la orden al cliente |
+
+### Tiempos Calculados Automáticamente
+
+Estos campos se calculan automáticamente en la respuesta (no se guardan en la BD):
+
+| Campo | Fórmula | Qué mide |
+|-------|---------|----------|
+| `tiempo_hasta_preparacion` | `fecha_en_preparacion - fecha_hora` | Tiempo de espera antes de que comience la preparación |
+| `tiempo_preparacion` | `fecha_listo - fecha_en_preparacion` | Duración de la preparación de la orden |
+| `tiempo_espera_entrega` | `fecha_entregado - fecha_listo` | Tiempo que el cliente tardó en recoger su orden |
+| `tiempo_total` | `fecha_entregado - fecha_hora` | Duración total del proceso (de principio a fin) |
+
+### Ejemplo Visual del Flujo
+
+```
+PAGADO ──────► EN_PREPARACION ──────► LISTO ──────► ENTREGADO
+│              │                      │             │
+18:45:00       18:47:30               18:55:15      19:02:45
+│              │                      │             │
+└──150 seg────►└────465 seg─────────►└──450 seg──►│
+(2.5 min)      (7.75 min)             (7.5 min)    
+                                                    
+◄────────────────── 1065 seg total ─────────────────►
+                    (17.75 min)
+```
+
+### Uso de los Tiempos
+
+**Para convertir a minutos:**
+```javascript
+const minutos = tiempo_en_segundos / 60;
+// Ejemplo: 1065 / 60 = 17.75 minutos
+```
+
+**Para análisis y métricas:**
+- **Eficiencia de cocina:** Analizar `tiempo_preparacion` promedio
+- **Tiempo de respuesta:** Monitorear `tiempo_hasta_preparacion`
+- **Comportamiento de clientes:** Estudiar `tiempo_espera_entrega`
+- **Performance general:** Seguimiento de `tiempo_total`
+
+**Nota:** Todos los timestamps usan **UTC** para evitar problemas de zona horaria. Convierte a hora local según sea necesario.
 
 ---
 

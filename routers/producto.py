@@ -1,8 +1,9 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func, desc
 from database import get_db
-from models import Producto, TipoProducto
+from models import Producto, TipoProducto, DetalleCompra
 from schemas import (
     ProductoResponse, 
     ProductoCreate, 
@@ -28,6 +29,45 @@ def listar_productos(
     productos = query.all()
     return productos
 
+@router.get("/tipos/", response_model=List[TipoProductoResponse])
+def listar_tipos_producto(db: Session = Depends(get_db)):
+    """Listar todos los tipos de producto (categorías del menú)"""
+    tipos = db.query(TipoProducto).all()
+    return tipos
+
+@router.get("/recomendados", response_model=List[ProductoResponse])
+def obtener_productos_recomendados(
+    limit: int = 5,
+    categoria_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener productos recomendados basados en popularidad (más vendidos).
+    Sistema simple de recomendación que retorna los productos que más se han vendido.
+    """
+    # Query para obtener productos con conteo de ventas
+    query = db.query(
+        Producto,
+        func.count(DetalleCompra.id_producto).label('total_vendido')
+    ).outerjoin(
+        DetalleCompra, Producto.id == DetalleCompra.id_producto
+    ).filter(
+        Producto.disponible == True
+    )
+    
+    # Filtrar por categoría si se especifica
+    if categoria_id:
+        query = query.filter(Producto.id_tipo == categoria_id)
+    
+    # Agrupar por producto, ordenar por más vendidos y limitar resultados
+    productos = query.group_by(Producto.id)\
+                     .order_by(desc('total_vendido'), Producto.id)\
+                     .limit(limit)\
+                     .all()
+    
+    # Retornar solo los productos (sin el conteo)
+    return [producto for producto, count in productos]
+
 @router.get("/{producto_id}", response_model=ProductoResponse)
 def obtener_producto(producto_id: int, db: Session = Depends(get_db)):
     """Obtener detalles de un producto específico"""
@@ -38,12 +78,6 @@ def obtener_producto(producto_id: int, db: Session = Depends(get_db)):
             detail="Producto no encontrado"
         )
     return producto
-
-@router.get("/tipos/", response_model=List[TipoProductoResponse])
-def listar_tipos_producto(db: Session = Depends(get_db)):
-    """Listar todos los tipos de producto (categorías del menú)"""
-    tipos = db.query(TipoProducto).all()
-    return tipos
 
 # Endpoints de administración (requieren autenticación de admin)
 @router.post("/tipos/", response_model=TipoProductoResponse, status_code=status.HTTP_201_CREATED)

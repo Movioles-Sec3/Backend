@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, computed_field
 from typing import List, Optional
 from datetime import datetime
 from models import EstadoCompra, EstadoQR
@@ -86,6 +86,44 @@ class CompraResponse(BaseModel):
     estado: EstadoCompra
     detalles: List[DetalleCompraResponse]
     qr: Optional['QRResponse'] = None
+    
+    # Timestamps de cada etapa
+    fecha_en_preparacion: Optional[datetime] = None
+    fecha_listo: Optional[datetime] = None
+    fecha_entregado: Optional[datetime] = None
+    
+    # Tiempos calculados (en segundos)
+    @computed_field
+    @property
+    def tiempo_hasta_preparacion(self) -> Optional[float]:
+        """Tiempo desde creación hasta que comienza la preparación (segundos)"""
+        if self.fecha_en_preparacion:
+            return (self.fecha_en_preparacion - self.fecha_hora).total_seconds()
+        return None
+    
+    @computed_field
+    @property
+    def tiempo_preparacion(self) -> Optional[float]:
+        """Tiempo desde que comienza la preparación hasta que está lista (segundos)"""
+        if self.fecha_en_preparacion and self.fecha_listo:
+            return (self.fecha_listo - self.fecha_en_preparacion).total_seconds()
+        return None
+    
+    @computed_field
+    @property
+    def tiempo_espera_entrega(self) -> Optional[float]:
+        """Tiempo desde que está lista hasta que se entrega (segundos)"""
+        if self.fecha_listo and self.fecha_entregado:
+            return (self.fecha_entregado - self.fecha_listo).total_seconds()
+        return None
+    
+    @computed_field
+    @property
+    def tiempo_total(self) -> Optional[float]:
+        """Tiempo total desde creación hasta entrega (segundos)"""
+        if self.fecha_entregado:
+            return (self.fecha_entregado - self.fecha_hora).total_seconds()
+        return None
     
     class Config:
         from_attributes = True
