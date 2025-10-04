@@ -229,6 +229,9 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 
 ## Productos
 
+> ⚠️ **Nota importante sobre el orden de los endpoints:**  
+> En esta documentación, los endpoints están listados en el **orden correcto de implementación**. Las rutas específicas (como `/recomendados`, `/tipos/`) deben definirse ANTES que las rutas con parámetros dinámicos (como `/{producto_id}`) para evitar conflictos de routing en FastAPI.
+
 ### 📋 Listar Productos / Obtener Productos por Categoría
 
 **Endpoint:** `GET /productos/`
@@ -281,41 +284,6 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 
 ---
 
-### 🔍 Obtener Producto por ID
-
-**Endpoint:** `GET /productos/{producto_id}`
-
-**Descripción:** Obtiene los detalles de un producto específico.
-
-**Autenticación:** No requerida
-
-**Path Parameters:**
-- `producto_id`: ID del producto (int)
-
-**Ejemplo:** `/productos/1`
-
-**Respuesta exitosa (200):**
-```json
-{
-  "id": 1,
-  "nombre": "Cerveza Artesanal IPA",
-  "descripcion": "Cerveza con notas cítricas y amargor equilibrado",
-  "imagen_url": "https://example.com/cerveza-ipa.jpg",
-  "precio": 8500.0,
-  "disponible": true,
-  "id_tipo": 1,
-  "tipo_producto": {
-    "id": 1,
-    "nombre": "Bebidas Alcohólicas"
-  }
-}
-```
-
-**Errores posibles:**
-- **404 Not Found:** Producto no encontrado
-
----
-
 ### 🏷️ Listar Tipos de Producto
 
 **Endpoint:** `GET /productos/tipos/`
@@ -345,34 +313,6 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
   }
 ]
 ```
-
----
-
-### ➕ Crear Tipo de Producto (Admin)
-
-**Endpoint:** `POST /productos/tipos/`
-
-**Descripción:** Crea una nueva categoría de productos.
-
-**Autenticación:** No requerida (⚠️ En producción debe protegerse con autenticación de administrador)
-
-**Body:**
-```json
-{
-  "nombre": "Cócteles"
-}
-```
-
-**Respuesta exitosa (201):**
-```json
-{
-  "id": 5,
-  "nombre": "Cócteles"
-}
-```
-
-**Errores posibles:**
-- **400 Bad Request:** El tipo de producto ya existe
 
 ---
 
@@ -447,6 +387,71 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 - Solo muestra productos disponibles
 
 **Nota:** Los productos se ordenan por popularidad (más vendidos primero). Si hay empate en ventas, se ordenan por ID. Funciona perfectamente incluso sin datos históricos de ventas.
+
+---
+
+### 🔍 Obtener Producto por ID
+
+**Endpoint:** `GET /productos/{producto_id}`
+
+**Descripción:** Obtiene los detalles de un producto específico por su ID.
+
+**Autenticación:** No requerida
+
+**Path Parameters:**
+- `producto_id`: ID del producto (int)
+
+**Ejemplo:** `/productos/1`
+
+**Respuesta exitosa (200):**
+```json
+{
+  "id": 1,
+  "nombre": "Cerveza Artesanal IPA",
+  "descripcion": "Cerveza con notas cítricas y amargor equilibrado",
+  "imagen_url": "https://example.com/cerveza-ipa.jpg",
+  "precio": 8500.0,
+  "disponible": true,
+  "id_tipo": 1,
+  "tipo_producto": {
+    "id": 1,
+    "nombre": "Bebidas Alcohólicas"
+  }
+}
+```
+
+**Errores posibles:**
+- **404 Not Found:** Producto no encontrado
+
+**Nota:** ⚠️ Este endpoint debe estar definido DESPUÉS de las rutas específicas (`/recomendados`, `/tipos/`) para evitar conflictos de routing.
+
+---
+
+### ➕ Crear Tipo de Producto (Admin)
+
+**Endpoint:** `POST /productos/tipos/`
+
+**Descripción:** Crea una nueva categoría de productos.
+
+**Autenticación:** No requerida (⚠️ En producción debe protegerse con autenticación de administrador)
+
+**Body:**
+```json
+{
+  "nombre": "Cócteles"
+}
+```
+
+**Respuesta exitosa (201):**
+```json
+{
+  "id": 5,
+  "nombre": "Cócteles"
+}
+```
+
+**Errores posibles:**
+- **400 Bad Request:** El tipo de producto ya existe
 
 ---
 
