@@ -14,6 +14,7 @@
 - [Usuarios](#usuarios)
 - [Productos](#productos)
 - [Compras](#compras)
+- [Conversiones de Moneda](#conversiones-de-moneda-)
 - [Analytics](#analytics)
 - [Modelos de Datos](#modelos-de-datos)
 - [Códigos de Estado](#códigos-de-estado)
@@ -24,7 +25,7 @@
 
 ## Resumen de Endpoints
 
-### Tabla de Endpoints Disponibles (16 total)
+### Tabla de Endpoints Disponibles (19 total)
 
 | Método | Endpoint | Descripción | Auth Requerida |
 |--------|----------|-------------|----------------|
@@ -39,6 +40,7 @@
 | **PRODUCTOS** | | | |
 | GET | `/productos/` | Listar productos (filtrar por categoría) | ❌ |
 | GET | `/productos/{producto_id}` | Obtener producto específico | ❌ |
+| GET | `/productos/{producto_id}/conversiones` | Obtener precio del producto con conversiones | ❌ |
 | GET | `/productos/tipos/` | Listar categorías/tipos de producto | ❌ |
 | GET | `/productos/recomendados` | Obtener productos recomendados (más vendidos) | ❌ |
 | POST | `/productos/tipos/` | Crear nueva categoría (Admin) | ❌* |
@@ -52,6 +54,9 @@
 | POST | `/compras/qr/escanear` | Escanear QR para entregar orden (Staff) | ❌* |
 | **ANALYTICS** | | | |
 | GET | `/analytics/reorders-by-category` | Reordenes por categoría y hora | ❌ |
+| **CONVERSIONES** | | | |
+| GET | `/conversiones/` | Convertir monto entre monedas | ❌ |
+| GET | `/conversiones/monedas` | Listar monedas soportadas | ❌ |
 
 **Nota:** Los endpoints marcados con ❌* deberían requerir autenticación de Admin/Staff en producción, pero actualmente son públicos.
 
@@ -427,6 +432,56 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 - **404 Not Found:** Producto no encontrado
 
 **Nota:** ⚠️ Este endpoint debe estar definido DESPUÉS de las rutas específicas (`/recomendados`, `/tipos/`) para evitar conflictos de routing.
+
+---
+
+### 💱 Obtener Producto con Conversiones de Precio
+
+**Endpoint:** `GET /productos/{producto_id}/conversiones`
+
+**Descripción:** Obtiene la información de un producto específico junto con su precio original en COP y conversiones automáticas a USD, EUR y MXN. Útil para mostrar precios internacionales a turistas o clientes que prefieren ver precios en otras monedas.
+
+**Autenticación:** No requerida
+
+**Path Parameters:**
+- `producto_id`: ID del producto (int)
+
+**Ejemplo:** `/productos/1/conversiones`
+
+**Respuesta exitosa (200):**
+```json
+{
+  "id": 1,
+  "nombre": "Cerveza Artesanal IPA",
+  "descripcion": "Cerveza con notas cítricas y amargor equilibrado",
+  "imagen_url": "https://example.com/cerveza-ipa.jpg",
+  "precio_original": 8500.0,
+  "moneda_original": "COP",
+  "conversiones": {
+    "USD": 2.13,
+    "EUR": 1.97,
+    "MXN": 40.35
+  },
+  "fecha_actualizacion": "2025-10-04T20:30:00"
+}
+```
+
+**Caso de uso práctico:**
+```javascript
+// Mostrar producto con precios internacionales
+const response = await fetch('/productos/1/conversiones')
+const data = await response.json()
+
+// Interfaz muestra:
+// Cerveza Artesanal IPA
+// $8,500 COP  |  $2.13 USD  |  €1.97 EUR  |  $40.35 MXN
+```
+
+**Errores posibles:**
+- **404 Not Found:** Producto no encontrado
+- **500 Internal Server Error:** Error al obtener tasas de cambio
+
+**Nota:** Las tasas de cambio se actualizan cada hora y se cachean para optimizar el rendimiento. Solo retorna conversiones a USD, EUR y MXN.
 
 ---
 
@@ -871,6 +926,140 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 - **400 Bad Request:** 
   - El código QR ya fue canjeado/expirado
   - La orden no está lista para entregar (debe estar en estado `LISTO`)
+
+---
+
+## Conversiones de Moneda 💱
+
+> 🌍 **API Externa:** Esta funcionalidad utiliza ExchangeRate-API para obtener tasas de cambio en tiempo real.
+
+### 💵 Convertir Moneda
+
+**Endpoint:** `GET /conversiones/`
+
+**Descripción:** Convierte un monto de una moneda a otra(s). Si no se especifica moneda destino, retorna conversiones a las principales monedas (USD, EUR, GBP, MXN, BRL, ARS, CLP). Las tasas de cambio se cachean por 1 hora para optimizar el rendimiento.
+
+**Autenticación:** No requerida
+
+**Query Parameters:**
+- `monto` (requerido): Monto a convertir (float, debe ser > 0)
+- `moneda_origen` (opcional, default="COP"): Código ISO 4217 de la moneda origen (string, 3 caracteres)
+- `moneda_destino` (opcional): Código ISO 4217 de la moneda destino específica (string, 3 caracteres)
+
+**Casos de uso:**
+
+**1. Conversión múltiple (sin especificar destino):**
+```
+GET /conversiones/?monto=15000&moneda_origen=COP
+```
+
+**Respuesta (200):**
+```json
+{
+  "monto_original": 15000.0,
+  "moneda_origen": "COP",
+  "conversiones": {
+    "USD": 3.75,
+    "EUR": 3.48,
+    "GBP": 2.98,
+    "MXN": 71.25,
+    "BRL": 18.60,
+    "ARS": 3525.0,
+    "CLP": 3300.0
+  },
+  "fecha_actualizacion": "2025-10-04T20:30:00"
+}
+```
+
+**2. Conversión específica (con destino):**
+```
+GET /conversiones/?monto=15000&moneda_origen=COP&moneda_destino=USD
+```
+
+**Respuesta (200):**
+```json
+{
+  "monto_original": 15000.0,
+  "moneda_origen": "COP",
+  "monto_convertido": 3.75,
+  "moneda_destino": "USD",
+  "tasa_cambio": 0.00025,
+  "fecha_actualizacion": "2025-10-04T20:30:00"
+}
+```
+
+**Ejemplo práctico de uso:**
+```javascript
+// App móvil obtiene un producto
+const producto = { nombre: "Cerveza IPA", precio: 8500 }
+
+// Usuario quiere ver precio en USD
+const response = await fetch('/conversiones/?monto=8500&moneda_origen=COP&moneda_destino=USD')
+const data = await response.json()
+// Muestra: "Cerveza IPA - $2.13 USD"
+```
+
+**Errores posibles:**
+- **400 Bad Request:** 
+  - Monto debe ser mayor a 0
+  - Moneda no soportada
+- **500 Internal Server Error:** Error al consultar la API externa de tasas de cambio
+
+**Nota:** Las tasas se actualizan automáticamente cada hora. El sistema usa cache para evitar llamadas excesivas a la API externa.
+
+---
+
+### 🌍 Listar Monedas Soportadas
+
+**Endpoint:** `GET /conversiones/monedas`
+
+**Descripción:** Obtiene la lista completa de códigos de moneda soportados por el sistema (más de 160 monedas según ISO 4217).
+
+**Autenticación:** No requerida
+
+**Respuesta exitosa (200):**
+```json
+{
+  "total": 162,
+  "monedas": [
+    "AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AUD", "AWG",
+    "AZN", "BAM", "BBD", "BDT", "BGN", "BHD", "BIF", "BMD", "BND",
+    "BOB", "BRL", "BSD", "BTN", "BWP", "BYN", "BZD", "CAD", "CDF",
+    "CHF", "CLP", "CNY", "COP", "CRC", "CUP", "CVE", "CZK", "DJF",
+    "DKK", "DOP", "DZD", "EGP", "ERN", "ETB", "EUR", "FJD", "FKP",
+    "FOK", "GBP", "GEL", "GGP", "GHS", "GIP", "GMD", "GNF", "GTQ",
+    "GYD", "HKD", "HNL", "HRK", "HTG", "HUF", "IDR", "ILS", "IMP",
+    "INR", "IQD", "IRR", "ISK", "JEP", "JMD", "JOD", "JPY", "KES",
+    "KGS", "KHR", "KID", "KMF", "KRW", "KWD", "KYD", "KZT", "LAK",
+    "LBP", "LKR", "LRD", "LSL", "LYD", "MAD", "MDL", "MGA", "MKD",
+    "MMK", "MNT", "MOP", "MRU", "MUR", "MVR", "MWK", "MXN", "MYR",
+    "MZN", "NAD", "NGN", "NIO", "NOK", "NPR", "NZD", "OMR", "PAB",
+    "PEN", "PGK", "PHP", "PKR", "PLN", "PYG", "QAR", "RON", "RSD",
+    "RUB", "RWF", "SAR", "SBD", "SCR", "SDG", "SEK", "SGD", "SHP",
+    "SLE", "SLL", "SOS", "SRD", "SSP", "STN", "SYP", "SZL", "THB",
+    "TJS", "TMT", "TND", "TOP", "TRY", "TTD", "TVD", "TWD", "TZS",
+    "UAH", "UGX", "USD", "UYU", "UZS", "VES", "VND", "VUV", "WST",
+    "XAF", "XCD", "XDR", "XOF", "XPF", "YER", "ZAR", "ZMW", "ZWL"
+  ],
+  "principales": ["COP", "USD", "EUR", "GBP", "MXN", "BRL", "ARS", "CLP"]
+}
+```
+
+**Monedas principales destacadas:**
+- **COP** - Peso colombiano
+- **USD** - Dólar estadounidense  
+- **EUR** - Euro
+- **GBP** - Libra esterlina
+- **MXN** - Peso mexicano
+- **BRL** - Real brasileño
+- **ARS** - Peso argentino
+- **CLP** - Peso chileno
+
+**Errores posibles:**
+- **500 Internal Server Error:** Error al consultar la API externa
+
+---
+
 ## Analytics
 
 ### 📊 Reordenes por Categoría y Horas del Día

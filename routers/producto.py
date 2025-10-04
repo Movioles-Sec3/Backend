@@ -79,6 +79,50 @@ def obtener_producto(producto_id: int, db: Session = Depends(get_db)):
         )
     return producto
 
+@router.get("/{producto_id}/conversiones")
+def obtener_producto_con_conversiones(producto_id: int, db: Session = Depends(get_db)):
+    """
+    Obtener el precio de un producto con sus conversiones a USD, EUR y MXN.
+    
+    Retorna el precio original en COP y las conversiones automáticas a las principales monedas.
+    """
+    from services.currency_service import convert_currency
+    
+    # Obtener el producto
+    producto = db.query(Producto).filter(Producto.id == producto_id).first()
+    if not producto:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado"
+        )
+    
+    # Obtener conversiones del precio
+    try:
+        conversiones_data = convert_currency(producto.precio, "COP", None)
+        
+        # Filtrar solo USD, EUR y MXN
+        conversiones_filtradas = {
+            moneda: conversiones_data["conversiones"][moneda]
+            for moneda in ["USD", "EUR", "MXN"]
+            if moneda in conversiones_data["conversiones"]
+        }
+        
+        return {
+            "id": producto.id,
+            "nombre": producto.nombre,
+            "descripcion": producto.descripcion,
+            "imagen_url": producto.imagen_url,
+            "precio_original": producto.precio,
+            "moneda_original": "COP",
+            "conversiones": conversiones_filtradas,
+            "fecha_actualizacion": conversiones_data.get("fecha_actualizacion")
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener conversiones de moneda: {str(e)}"
+        )
+
 # Endpoints de administración (requieren autenticación de admin)
 @router.post("/tipos/", response_model=TipoProductoResponse, status_code=status.HTTP_201_CREATED)
 def crear_tipo_producto(tipo: TipoProductoCreate, db: Session = Depends(get_db)):
