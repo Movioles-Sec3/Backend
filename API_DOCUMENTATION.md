@@ -23,7 +23,7 @@
 
 ## Resumen de Endpoints
 
-### Tabla de Endpoints Disponibles (15 total)
+### Tabla de Endpoints Disponibles (16 total)
 
 | Método | Endpoint | Descripción | Auth Requerida |
 |--------|----------|-------------|----------------|
@@ -39,6 +39,7 @@
 | GET | `/productos/` | Listar productos (filtrar por categoría) | ❌ |
 | GET | `/productos/{producto_id}` | Obtener producto específico | ❌ |
 | GET | `/productos/tipos/` | Listar categorías/tipos de producto | ❌ |
+| GET | `/productos/recomendados` | Obtener productos recomendados (más vendidos) | ❌ |
 | POST | `/productos/tipos/` | Crear nueva categoría (Admin) | ❌* |
 | POST | `/productos/` | Crear nuevo producto (Admin) | ❌* |
 | PUT | `/productos/{producto_id}` | Actualizar producto (Admin) | ❌* |
@@ -372,6 +373,80 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 
 **Errores posibles:**
 - **400 Bad Request:** El tipo de producto ya existe
+
+---
+
+### ⭐ Obtener Productos Recomendados
+
+**Endpoint:** `GET /productos/recomendados`
+
+**Descripción:** Obtiene una lista de productos recomendados basados en popularidad (los más vendidos). Sistema simple de recomendación que funciona incluso con pocos datos. Útil para mostrar en la pantalla principal o sugerir productos a los clientes.
+
+**Autenticación:** No requerida
+
+**Query Parameters:**
+- `limit` (opcional, default=5): Número de productos recomendados a retornar (int)
+- `categoria_id` (opcional): Filtrar recomendaciones por categoría específica (int)
+
+**Casos de uso:**
+- **Top 5 productos más populares:** `/productos/recomendados`
+- **Top 10 productos:** `/productos/recomendados?limit=10`
+- **Top 5 bebidas más populares:** `/productos/recomendados?categoria_id=1`
+- **Top 3 comidas:** `/productos/recomendados?limit=3&categoria_id=2`
+
+**Respuesta exitosa (200):**
+```json
+[
+  {
+    "id": 2,
+    "nombre": "Club Colombia",
+    "descripcion": "Cerveza colombiana premium",
+    "imagen_url": "https://example.com/club.jpg",
+    "precio": 7000.0,
+    "disponible": true,
+    "id_tipo": 1,
+    "tipo_producto": {
+      "id": 1,
+      "nombre": "Cervezas"
+    }
+  },
+  {
+    "id": 5,
+    "nombre": "Nachos con Queso",
+    "descripcion": "Nachos crujientes con queso cheddar fundido",
+    "imagen_url": "https://example.com/nachos.jpg",
+    "precio": 12000.0,
+    "disponible": true,
+    "id_tipo": 2,
+    "tipo_producto": {
+      "id": 2,
+      "nombre": "Comida"
+    }
+  },
+  {
+    "id": 1,
+    "nombre": "Cerveza Artesanal IPA",
+    "descripcion": "Cerveza con notas cítricas y amargor equilibrado",
+    "imagen_url": "https://example.com/cerveza-ipa.jpg",
+    "precio": 8500.0,
+    "disponible": true,
+    "id_tipo": 1,
+    "tipo_producto": {
+      "id": 1,
+      "nombre": "Cervezas"
+    }
+  }
+]
+```
+
+**Cómo funciona:**
+- Cuenta cuántas veces se ha comprado cada producto (en `detalles_compra`)
+- Ordena por cantidad de ventas de mayor a menor
+- Retorna los productos más populares
+- Si un producto nunca se ha vendido, aparecerá al final
+- Solo muestra productos disponibles
+
+**Nota:** Los productos se ordenan por popularidad (más vendidos primero). Si hay empate en ventas, se ordenan por ID. Funciona perfectamente incluso sin datos históricos de ventas.
 
 ---
 
