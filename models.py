@@ -61,6 +61,11 @@ class Compra(Base):
     total = Column(Float, nullable=False)
     estado = Column(Enum(EstadoCompra), default=EstadoCompra.CARRITO, nullable=False)
     
+    # Timestamps para medir tiempos entre estados
+    fecha_en_preparacion = Column(DateTime, nullable=True)
+    fecha_listo = Column(DateTime, nullable=True)
+    fecha_entregado = Column(DateTime, nullable=True)
+    
     # Relaciones
     usuario = relationship("Usuario", back_populates="compras")
     detalles = relationship("DetalleCompra", back_populates="compra")

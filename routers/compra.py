@@ -150,6 +150,8 @@ def actualizar_estado_compra(
     db: Session = Depends(get_db)
 ):
     """(Staff) Actualizar el estado de una compra"""
+    from datetime import datetime
+    
     compra = db.query(Compra).filter(Compra.id == compra_id).first()
     if not compra:
         raise HTTPException(
@@ -173,7 +175,17 @@ def actualizar_estado_compra(
             detail=f"No se puede cambiar de estado {estado_actual.value} a {nuevo_estado.value}"
         )
     
+    # Actualizar estado y registrar timestamp (usando UTC para consistencia)
     compra.estado = nuevo_estado
+    
+    # Registrar el timestamp según el nuevo estado
+    if nuevo_estado == EstadoCompra.EN_PREPARACION:
+        compra.fecha_en_preparacion = datetime.utcnow()
+    elif nuevo_estado == EstadoCompra.LISTO:
+        compra.fecha_listo = datetime.utcnow()
+    elif nuevo_estado == EstadoCompra.ENTREGADO:
+        compra.fecha_entregado = datetime.utcnow()
+    
     db.commit()
     db.refresh(compra)
     
@@ -185,6 +197,8 @@ def escanear_qr(
     db: Session = Depends(get_db)
 ):
     """(Staff) Recibir un codigo_qr_hash, verificarlo y procesar la entrega"""
+    from datetime import datetime
+    
     qr = db.query(QR).filter(QR.codigo_qr_hash == qr_data.codigo_qr_hash).first()
     if not qr:
         raise HTTPException(
@@ -208,6 +222,7 @@ def escanear_qr(
     # Marcar QR como canjeado y compra como entregada
     qr.estado = EstadoQR.CANJEADO
     compra.estado = EstadoCompra.ENTREGADO
+    compra.fecha_entregado = datetime.utcnow()  # Registrar timestamp de entrega (UTC)
     
     db.commit()
     
