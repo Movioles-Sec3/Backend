@@ -723,16 +723,25 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 ```json
 {
   "id": 15,
-  "fecha_hora": "2025-10-03T14:30:00",
+  "fecha_hora": "2025-10-04T14:30:00Z",
   "total": 32000.0,
   "estado": "EN_PREPARACION",
   "detalles": [...],
   "qr": {
     "codigo_qr_hash": "a3f8c9d2e1b4f7a6c3d8e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2",
     "estado": "ACTIVO"
-  }
+  },
+  "fecha_en_preparacion": "2025-10-04T14:32:00Z",
+  "fecha_listo": null,
+  "fecha_entregado": null,
+  "tiempo_hasta_preparacion": 120.0,
+  "tiempo_preparacion": null,
+  "tiempo_espera_entrega": null,
+  "tiempo_total": null
 }
 ```
+
+**Nota:** Al cambiar el estado, se registra automáticamente el timestamp correspondiente y se calculan los tiempos disponibles hasta ese momento.
 
 **Errores posibles:**
 - **404 Not Found:** Compra no encontrada
