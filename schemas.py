@@ -152,3 +152,21 @@ class TokenData(BaseModel):
 
 # Para resolver la referencia circular
 CompraResponse.model_rebuild()
+
+# --- Esquemas de Analytics ---
+class CategoryReorderHourCount(BaseModel):
+    hour: int
+    count: int
+
+class CategoryReorderStats(BaseModel):
+    categoria_id: int
+    categoria_nombre: str
+    reorder_count: int
+    hour_distribution: List[CategoryReorderHourCount]
+    peak_hours: List[int]
+
+class ReordersByCategoryResponse(BaseModel):
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    timezone_offset_minutes: int
+    categories: List[CategoryReorderStats]

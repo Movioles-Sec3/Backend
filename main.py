@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 from routers import usuario, producto, compra
+from routers import analytics
 
 # Crear las tablas en la base de datos
 Base.metadata.create_all(bind=engine)
@@ -26,6 +27,7 @@ app.add_middleware(
 app.include_router(usuario.router)
 app.include_router(producto.router)
 app.include_router(compra.router)
+app.include_router(analytics.router)
 
 @app.get("/")
 def root():
