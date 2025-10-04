@@ -16,6 +16,11 @@ class EstadoQR(enum.Enum):
     CANJEADO = "CANJEADO"
     EXPIRADO = "EXPIRADO"
 
+class NivelInteresSeatDelivery(enum.Enum):
+    ALTO = "HIGH"
+    MODERADO = "MODERATE"
+    BAJO = "LOW"
+
 class Usuario(Base):
     __tablename__ = "usuarios"
     
@@ -27,6 +32,7 @@ class Usuario(Base):
     
     # Relaciones
     compras = relationship("Compra", back_populates="usuario")
+    encuesta = relationship("EncuestaSeatDelivery", back_populates="usuario", uselist=False)
 
 class TipoProducto(Base):
     __tablename__ = "tipos_producto"
@@ -92,3 +98,16 @@ class QR(Base):
     
     # Relaciones
     compra = relationship("Compra", back_populates="qr")
+
+class EncuestaSeatDelivery(Base):
+    __tablename__ = "encuestas_seat_delivery"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_usuario = Column(Integer, ForeignKey("usuarios.id"), nullable=False, unique=True)
+    nivel_interes = Column(Enum(NivelInteresSeatDelivery), nullable=False)
+    minutos_extra = Column(Integer, nullable=False)
+    comentarios = Column(String)
+    creado_en = Column(DateTime, default=func.now(), nullable=False)
+
+    # Relaciones
+    usuario = relationship("Usuario", back_populates="encuesta")

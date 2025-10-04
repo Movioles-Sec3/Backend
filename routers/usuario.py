@@ -2,8 +2,16 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Usuario
-from schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, RecargaSaldo
+from models import Usuario, EncuestaSeatDelivery
+from schemas import (
+    UsuarioCreate,
+    UsuarioResponse,
+    UsuarioLogin,
+    Token,
+    RecargaSaldo,
+    EncuestaSeatDeliveryCreate,
+    EncuestaSeatDeliveryResponse,
+)
 from auth import (
     get_password_hash, 
     authenticate_user, 
@@ -81,3 +89,69 @@ def recargar_saldo(
     db.refresh(current_user)
     
     return current_user
+
+
+@router.post("/me/encuesta", response_model=EncuestaSeatDeliveryResponse, status_code=status.HTTP_201_CREATED)
+def crear_encuesta_usuario(
+    encuesta_data: EncuestaSeatDeliveryCreate,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Registrar la preferencia de seat delivery del usuario"""
+    if current_user.encuesta:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El usuario ya tiene una encuesta registrada. Usa PUT para actualizarla."
+        )
+
+    encuesta = EncuestaSeatDelivery(
+        id_usuario=current_user.id,
+        nivel_interes=encuesta_data.nivel_interes,
+        minutos_extra=encuesta_data.minutos_extra,
+        comentarios=encuesta_data.comentarios
+    )
+
+    db.add(encuesta)
+    db.commit()
+    db.refresh(encuesta)
+
+    return encuesta
+
+
+@router.put("/me/encuesta", response_model=EncuestaSeatDeliveryResponse)
+def actualizar_encuesta_usuario(
+    encuesta_data: EncuestaSeatDeliveryCreate,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Actualizar la encuesta registrada del usuario"""
+    encuesta = current_user.encuesta
+    if not encuesta:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El usuario no tiene una encuesta registrada"
+        )
+
+    encuesta.nivel_interes = encuesta_data.nivel_interes
+    encuesta.minutos_extra = encuesta_data.minutos_extra
+    encuesta.comentarios = encuesta_data.comentarios
+
+    db.commit()
+    db.refresh(encuesta)
+
+    return encuesta
+
+
+@router.get("/me/encuesta", response_model=EncuestaSeatDeliveryResponse)
+def obtener_encuesta_usuario(
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Obtener la encuesta guardada del usuario autenticado"""
+    encuesta = current_user.encuesta
+    if not encuesta:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El usuario no tiene una encuesta registrada"
+        )
+
+    return encuesta

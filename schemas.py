@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, computed_field
 from typing import List, Optional
 from datetime import datetime
-from models import EstadoCompra, EstadoQR
+from models import EstadoCompra, EstadoQR, NivelInteresSeatDelivery
 
 # Esquemas de Usuario
 class UsuarioBase(BaseModel):
@@ -14,6 +14,7 @@ class UsuarioCreate(UsuarioBase):
 class UsuarioResponse(UsuarioBase):
     id: int
     saldo: float
+    encuesta: Optional['EncuestaSeatDeliveryResponse'] = None
     
     class Config:
         from_attributes = True
@@ -152,6 +153,24 @@ class TokenData(BaseModel):
 
 # Para resolver la referencia circular
 CompraResponse.model_rebuild()
+
+# Encuesta Seat Delivery
+class EncuestaSeatDeliveryBase(BaseModel):
+    nivel_interes: NivelInteresSeatDelivery
+    minutos_extra: int
+    comentarios: Optional[str] = None
+
+class EncuestaSeatDeliveryCreate(EncuestaSeatDeliveryBase):
+    pass
+
+class EncuestaSeatDeliveryResponse(EncuestaSeatDeliveryBase):
+    id: int
+    creado_en: datetime
+
+    class Config:
+        from_attributes = True
+
+UsuarioResponse.model_rebuild()
 
 # --- Esquemas de Analytics ---
 class CategoryReorderHourCount(BaseModel):
