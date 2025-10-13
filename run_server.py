@@ -4,17 +4,19 @@ Ejecutar con: python run_server.py
 """
 
 import uvicorn
-from main import app
+import config
 
 if __name__ == "__main__":
     print("🚀 Iniciando servidor TapAndToast...")
-    print("📖 Documentación disponible en: http://localhost:8000/docs")
+    print(f"📊 Modo de base de datos: {config.DATABASE_MODE}")
+    print(f"🔄 Sincronización automática: {'✅ Habilitada' if config.AUTO_SYNC_TO_CLOUD else '❌ Deshabilitada'}")
+    print(f"📖 Documentación disponible en: http://{config.SERVER_HOST}:{config.SERVER_PORT}/docs")
     print("🔄 Recarga automática habilitada")
     
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8080,
+        host=config.SERVER_HOST,
+        port=config.SERVER_PORT,
         reload=True,
         log_level="info"
     )

@@ -16,6 +16,7 @@
 - [Compras](#compras)
 - [Conversiones de Moneda](#conversiones-de-moneda-)
 - [Analytics](#analytics)
+- [Administración](#administración)
 - [Modelos de Datos](#modelos-de-datos)
 - [Códigos de Estado](#códigos-de-estado)
 - [Medición de Tiempos en Compras](#-medición-de-tiempos-en-compras)
@@ -25,7 +26,7 @@
 
 ## Resumen de Endpoints
 
-### Tabla de Endpoints Disponibles (19 total)
+### Tabla de Endpoints Disponibles (22 total)
 
 | Método | Endpoint | Descripción | Auth Requerida |
 |--------|----------|-------------|----------------|
@@ -57,6 +58,10 @@
 | **CONVERSIONES** | | | |
 | GET | `/conversiones/` | Convertir monto entre monedas | ❌ |
 | GET | `/conversiones/monedas` | Listar monedas soportadas | ❌ |
+| **ADMIN** | | | |
+| GET | `/admin/sync-status` | Estado de sincronización BD local/nube | ❌* |
+| GET | `/admin/health` | Salud del sistema completo | ❌* |
+| GET | `/admin/config` | Configuración actual del sistema | ❌* |
 
 **Nota:** Los endpoints marcados con ❌* deberían requerir autenticación de Admin/Staff en producción, pero actualmente son públicos.
 
@@ -1113,6 +1118,145 @@ const data = await response.json()
 - La hora se convierte a local usando `timezone_offset_minutes` antes de agrupar.
 - Útil para planear staffing y promociones por categoría y horario.
 
+
+---
+
+## Administración
+
+### 📊 Estado de Sincronización
+
+**Endpoint:** `GET /admin/sync-status`
+
+**Descripción:** Obtiene el estado de sincronización entre la base de datos local (SQLite) y la base de datos en la nube (PostgreSQL). Muestra estadísticas de registros en ambas bases de datos y el estado de sincronización.
+
+**Autenticación:** No requerida (⚠️ En producción debe protegerse con autenticación de administrador)
+
+**Respuesta exitosa (200):**
+```json
+{
+  "database_mode": "local",
+  "auto_sync_enabled": true,
+  "cloud_configured": true,
+  "local_stats": {
+    "usuarios": 5,
+    "tipos_producto": 4,
+    "productos": 12,
+    "compras": 23,
+    "detalles_compra": 58,
+    "qrs": 23,
+    "encuestas_seat_delivery": 3
+  },
+  "cloud_stats": {
+    "usuarios": 5,
+    "tipos_producto": 4,
+    "productos": 12,
+    "compras": 23,
+    "detalles_compra": 58,
+    "qrs": 23,
+    "encuestas_seat_delivery": 3
+  },
+  "sync_status": "synced"
+}
+```
+
+**Valores de sync_status:**
+- `synced`: Bases de datos sincronizadas correctamente
+- `out_of_sync`: Hay diferencias entre local y nube
+- `not_configured`: Base de datos en la nube no configurada
+- `connection_error`: Error de conexión a la nube
+- `error`: Error durante la verificación
+
+**Caso con error:**
+```json
+{
+  "database_mode": "local",
+  "auto_sync_enabled": true,
+  "cloud_configured": true,
+  "local_stats": { ... },
+  "cloud_stats": {},
+  "sync_status": "error",
+  "error": "connection refused"
+}
+```
+
+---
+
+### ❤️ Salud del Sistema
+
+**Endpoint:** `GET /admin/health`
+
+**Descripción:** Verificación completa del estado de salud del sistema, incluyendo conexión a base de datos local y en la nube.
+
+**Autenticación:** No requerida (⚠️ En producción debe protegerse con autenticación de administrador)
+
+**Respuesta exitosa (200):**
+```json
+{
+  "status": "healthy",
+  "database": {
+    "local": "connected",
+    "cloud": "connected"
+  },
+  "configuration": {
+    "mode": "local",
+    "auto_sync": true
+  }
+}
+```
+
+**Estados posibles:**
+- `healthy`: Todos los sistemas funcionando correctamente
+- `degraded`: Sistema funcionando pero con problemas en la sincronización a la nube
+- `unhealthy`: Problemas críticos en la base de datos local
+
+**Ejemplo con problemas:**
+```json
+{
+  "status": "degraded",
+  "database": {
+    "local": "connected",
+    "cloud": "error: connection timeout"
+  },
+  "configuration": {
+    "mode": "local",
+    "auto_sync": true
+  }
+}
+```
+
+---
+
+### ⚙️ Configuración del Sistema
+
+**Endpoint:** `GET /admin/config`
+
+**Descripción:** Obtiene la configuración actual del sistema (sin datos sensibles como passwords o claves secretas).
+
+**Autenticación:** No requerida (⚠️ En producción debe protegerse con autenticación de administrador)
+
+**Respuesta exitosa (200):**
+```json
+{
+  "database_mode": "local",
+  "auto_sync_enabled": true,
+  "cloud_configured": true,
+  "is_sqlite": true,
+  "is_postgresql": false,
+  "server_host": "0.0.0.0",
+  "server_port": 8080,
+  "access_token_expire_minutes": 120
+}
+```
+
+**Campos:**
+- `database_mode`: Modo de operación actual (`local` o `cloud`)
+- `auto_sync_enabled`: Si la sincronización automática está habilitada
+- `cloud_configured`: Si hay una base de datos en la nube configurada
+- `is_sqlite`: Si la base de datos principal es SQLite
+- `is_postgresql`: Si la base de datos principal es PostgreSQL
+- `server_host`: Host del servidor
+- `server_port`: Puerto del servidor
+- `access_token_expire_minutes`: Duración de los tokens JWT en minutos
 
 ---
 

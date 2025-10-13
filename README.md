@@ -14,7 +14,8 @@ Backend para la aplicación móvil **TapAndToast** - Sistema de pedidos para bar
 
 - **FastAPI**: Framework web moderno y rápido
 - **SQLAlchemy**: ORM para manejo de base de datos
-- **SQLite**: Base de datos para desarrollo (fácil migración a PostgreSQL)
+- **SQLite**: Base de datos para desarrollo local
+- **PostgreSQL**: Base de datos en la nube con replicación automática
 - **JWT**: Autenticación segura con tokens
 - **Pydantic**: Validación de datos automática
 - **Bcrypt**: Hash seguro de contraseñas
@@ -60,17 +61,44 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. **Poblar la base de datos con datos de prueba**
+4. **Configurar variables de entorno**
+```bash
+# Copiar el archivo de ejemplo
+cp .env.example .env
+
+# Editar .env con tus configuraciones
+# Por defecto usa solo SQLite local
+```
+
+5. **Poblar la base de datos con datos de prueba**
 ```bash
 python seed_data.py
 ```
 
-5. **Ejecutar el servidor**
+6. **Ejecutar el servidor**
 ```bash
 python run_server.py
 ```
 
-El servidor estará disponible en `http://localhost:8000`
+El servidor estará disponible en `http://localhost:8080`
+
+### ☁️ Replicación a la Nube (Opcional)
+
+Para configurar replicación automática a PostgreSQL en la nube:
+
+1. **Crear base de datos PostgreSQL** en Railway, Neon o Render (ver [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md))
+2. **Configurar `.env`**:
+```env
+DATABASE_MODE=local
+CLOUD_DATABASE_URL=postgresql://user:password@host:port/database
+AUTO_SYNC_TO_CLOUD=true
+```
+3. **Sincronización inicial**:
+```bash
+python sync_to_cloud.py
+```
+
+Ahora cada cambio en tu base de datos local se replicará automáticamente a la nube. Ver la [Guía de Despliegue](DEPLOYMENT_GUIDE.md) para más detalles.
 
 ## 📖 Documentación de la API
 
