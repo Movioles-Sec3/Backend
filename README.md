@@ -9,6 +9,7 @@ Backend para la aplicación móvil **TapAndToast** - Sistema de pedidos para bar
 - **Códigos QR**: Generación automática de códigos únicos para cada orden
 - **Gestión de Estados**: Seguimiento completo del estado de las órdenes (PAGADO → EN_PREPARACION → LISTO → ENTREGADO)
 - **API RESTful**: Endpoints bien documentados para integración con la app móvil
+- **Analytics de Recargas**: Listado de recargas con cuenta y hora para auditoría
 
 ## 🛠️ Tecnologías
 
@@ -137,6 +138,11 @@ La API usa JWT (JSON Web Tokens) para autenticación. Para acceder a endpoints p
 - `GET /compras/pendientes` - Órdenes pendientes (Staff)
 - `PUT /compras/{id}/estado` - Actualizar estado (Staff)
 - `POST /compras/qr/escanear` - Escanear QR para entrega (Staff)
+
+### Analytics
+- `GET /analytics/reorders-by-category` - Reordenes por categoría y horas
+- `GET /analytics/order-peak-hours` - Análisis de horas pico de pedidos
+- `GET /analytics/recharges` - Recargas de saldo (cuenta y hora)
 
 ## 🚀 Despliegue en Producción
 

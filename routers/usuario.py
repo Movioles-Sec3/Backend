@@ -2,7 +2,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Usuario, EncuestaSeatDelivery
+from models import Usuario, EncuestaSeatDelivery, RecargaSaldoEvento
 from schemas import (
     UsuarioCreate,
     UsuarioResponse,
@@ -83,8 +83,10 @@ def recargar_saldo(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El monto debe ser mayor a 0"
         )
-    
+    # Actualizar saldo y registrar evento de recarga en la misma transacción
     current_user.saldo += recarga.monto
+    evento = RecargaSaldoEvento(id_usuario=current_user.id, monto=recarga.monto)
+    db.add(evento)
     db.commit()
     db.refresh(current_user)
     
