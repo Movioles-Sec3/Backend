@@ -9,6 +9,9 @@ from schemas import (
     ReordersByCategoryResponse,
     CategoryReorderStats,
     CategoryReorderHourCount,
+    OrderPeakHoursResponse,
+    HourlyDistribution,
+    OrderPeakHoursSummary,
 )
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -148,5 +151,151 @@ def reorders_by_category(
         timezone_offset_minutes=timezone_offset_minutes,
         categories=categories,
     )
+
+
+@router.get("/order-peak-hours", response_model=OrderPeakHoursResponse)
+def order_peak_hours(
+    start: Optional[datetime] = Query(None, description="Start datetime (inclusive) in UTC"),
+    end: Optional[datetime] = Query(None, description="End datetime (exclusive) in UTC"),
+    timezone_offset_minutes: int = Query(0, description="Client timezone offset from UTC in minutes (e.g., -300 for UTC-5)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Analiza las horas pico de pedidos para identificar patrones de volumen de órdenes durante el día.
+    
+    Retorna:
+    - Distribución horaria de pedidos con conteo, ingresos totales y valor promedio
+    - Identificación de horas pico (top 25% por volumen)
+    - Estadísticas resumidas incluyendo hora más ocupada y más tranquila
+    """
+    # Determinar ventana por defecto (día actual) si no se provee
+    now_utc = datetime.utcnow()
+    if end is None:
+        end = now_utc
+    if start is None:
+        # Default to start of current day
+        start = end.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Query de compras en el rango con estados válidos (al menos pagadas)
+    compras = (
+        db.query(
+            Compra.id,
+            Compra.fecha_hora,
+            Compra.total
+        )
+        .filter(Compra.fecha_hora >= start, Compra.fecha_hora < end)
+        .filter(Compra.estado.in_([
+            EstadoCompra.PAGADO,
+            EstadoCompra.EN_PREPARACION,
+            EstadoCompra.LISTO,
+            EstadoCompra.ENTREGADO
+        ]))
+        .all()
+    )
+    
+    # Convertir a hora local y agrupar por hora
+    def to_local_hour(dt: datetime, offset_min: int) -> int:
+        return ((dt + timedelta(minutes=offset_min)).hour) % 24
+    
+    # Agrupar por hora
+    hourly_data: Dict[int, List[float]] = {h: [] for h in range(24)}
+    
+    for compra in compras:
+        hour = to_local_hour(compra.fecha_hora, timezone_offset_minutes)
+        hourly_data[hour].append(compra.total)
+    
+    # Calcular estadísticas por hora
+    hourly_stats = []
+    total_orders = len(compras)
+    
+    for hour in range(24):
+        orders = hourly_data[hour]
+        order_count = len(orders)
+        total_revenue = sum(orders)
+        avg_order_value = total_revenue / order_count if order_count > 0 else 0.0
+        percentage = (order_count / total_orders * 100) if total_orders > 0 else 0.0
+        
+        hourly_stats.append({
+            'hour': hour,
+            'order_count': order_count,
+            'total_revenue': total_revenue,
+            'avg_order_value': avg_order_value,
+            'percentage': round(percentage, 2)
+        })
+    
+    # Identificar horas pico (top 25% por volumen)
+    if hourly_stats:
+        order_counts = [h['order_count'] for h in hourly_stats]
+        threshold = sorted(order_counts, reverse=True)[int(len(order_counts) * 0.25)] if order_counts else 0
+        
+        peak_hours = []
+        for h in hourly_stats:
+            is_peak = h['order_count'] >= threshold and h['order_count'] > 0
+            h['is_peak'] = is_peak
+            if is_peak:
+                peak_hours.append(h['hour'])
+    else:
+        peak_hours = []
+        for h in hourly_stats:
+            h['is_peak'] = False
+    
+    # Crear lista de distribución horaria
+    hourly_distribution = [
+        HourlyDistribution(
+            hour=h['hour'],
+            order_count=h['order_count'],
+            total_revenue=h['total_revenue'],
+            avg_order_value=h['avg_order_value'],
+            percentage=h['percentage'],
+            is_peak=h['is_peak']
+        )
+        for h in hourly_stats
+    ]
+    
+    # Calcular estadísticas de resumen
+    if total_orders > 0:
+        orders_in_peak_hours = sum(h['order_count'] for h in hourly_stats if h['is_peak'])
+        percentage_in_peak = (orders_in_peak_hours / total_orders * 100) if total_orders > 0 else 0.0
+        
+        # Encontrar hora más ocupada y más tranquila
+        busiest = max(hourly_stats, key=lambda h: h['order_count'])
+        slowest = min(hourly_stats, key=lambda h: h['order_count'])
+        
+        peak_hour_range = f"{min(peak_hours)}:00 - {max(peak_hours)}:00" if peak_hours else "N/A"
+        
+        summary = OrderPeakHoursSummary(
+            total_orders=total_orders,
+            peak_hours=peak_hours,
+            peak_hour_range=peak_hour_range,
+            orders_in_peak_hours=orders_in_peak_hours,
+            percentage_in_peak_hours=round(percentage_in_peak, 1),
+            busiest_hour=busiest['hour'],
+            busiest_hour_orders=busiest['order_count'],
+            slowest_hour=slowest['hour'],
+            slowest_hour_orders=slowest['order_count']
+        )
+    else:
+        # Sin datos, retornar valores por defecto
+        summary = OrderPeakHoursSummary(
+            total_orders=0,
+            peak_hours=[],
+            peak_hour_range="N/A",
+            orders_in_peak_hours=0,
+            percentage_in_peak_hours=0.0,
+            busiest_hour=0,
+            busiest_hour_orders=0,
+            slowest_hour=0,
+            slowest_hour_orders=0
+        )
+    
+    return OrderPeakHoursResponse(
+        start=start,
+        end=end,
+        timezone_offset_minutes=timezone_offset_minutes,
+        hourly_distribution=hourly_distribution,
+        peak_hours=peak_hours,
+        summary=summary
+    )
+
 
 

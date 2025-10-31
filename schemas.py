@@ -189,3 +189,31 @@ class ReordersByCategoryResponse(BaseModel):
     end: Optional[datetime] = None
     timezone_offset_minutes: int
     categories: List[CategoryReorderStats]
+
+# Order Peak Hours Schemas
+class HourlyDistribution(BaseModel):
+    hour: int
+    order_count: int
+    total_revenue: float
+    avg_order_value: float
+    percentage: float
+    is_peak: bool
+
+class OrderPeakHoursSummary(BaseModel):
+    total_orders: int
+    peak_hours: List[int]
+    peak_hour_range: str
+    orders_in_peak_hours: int
+    percentage_in_peak_hours: float
+    busiest_hour: int
+    busiest_hour_orders: int
+    slowest_hour: int
+    slowest_hour_orders: int
+
+class OrderPeakHoursResponse(BaseModel):
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    timezone_offset_minutes: int
+    hourly_distribution: List[HourlyDistribution]
+    peak_hours: List[int]
+    summary: OrderPeakHoursSummary
