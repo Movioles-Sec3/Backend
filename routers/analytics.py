@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from models import Compra, DetalleCompra, Producto, TipoProducto, EstadoCompra
+from models import Compra, DetalleCompra, Producto, TipoProducto, EstadoCompra, RecargaSaldoEvento, Usuario
 from schemas import (
     ReordersByCategoryResponse,
     CategoryReorderStats,
@@ -12,6 +12,7 @@ from schemas import (
     OrderPeakHoursResponse,
     HourlyDistribution,
     OrderPeakHoursSummary,
+    RecargaEventoResponse,
 )
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -298,4 +299,52 @@ def order_peak_hours(
     )
 
 
+@router.get("/recharges", response_model=List[RecargaEventoResponse])
+def listar_recargas(
+    start: Optional[datetime] = Query(None, description="Start datetime (inclusive) in UTC"),
+    end: Optional[datetime] = Query(None, description="End datetime (exclusive) in UTC"),
+    limit: int = Query(100, ge=1, le=1000, description="Max rows to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    db: Session = Depends(get_db)
+):
+    """
+    Lista las recargas de saldo con la cuenta (usuario) y la hora de recarga.
+    Permite filtrar por rango de fechas y paginar resultados.
+    """
+    now_utc = datetime.utcnow()
+    if end is None:
+        end = now_utc
+    if start is None:
+        # por defecto, últimos 30 días
+        start = end - timedelta(days=30)
 
+    # Query con join para obtener datos del usuario
+    q = (
+        db.query(
+            RecargaSaldoEvento.id.label("id"),
+            RecargaSaldoEvento.id_usuario.label("usuario_id"),
+            Usuario.nombre.label("usuario_nombre"),
+            Usuario.email.label("usuario_email"),
+            RecargaSaldoEvento.monto.label("monto"),
+            RecargaSaldoEvento.fecha_hora.label("fecha_hora"),
+        )
+        .join(Usuario, Usuario.id == RecargaSaldoEvento.id_usuario)
+        .filter(RecargaSaldoEvento.fecha_hora >= start, RecargaSaldoEvento.fecha_hora < end)
+        .order_by(RecargaSaldoEvento.fecha_hora.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+
+    rows = q.all()
+    # Mapear a esquema de respuesta
+    return [
+        RecargaEventoResponse(
+            id=r.id,
+            usuario_id=r.usuario_id,
+            usuario_nombre=r.usuario_nombre,
+            usuario_email=r.usuario_email,
+            monto=r.monto,
+            fecha_hora=r.fecha_hora,
+        )
+        for r in rows
+    ]

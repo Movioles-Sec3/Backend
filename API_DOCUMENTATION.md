@@ -25,7 +25,7 @@
 
 ## Resumen de Endpoints
 
-### Tabla de Endpoints Disponibles (19 total)
+### Tabla de Endpoints Disponibles (20 total)
 
 | Método | Endpoint | Descripción | Auth Requerida |
 |--------|----------|-------------|----------------|
@@ -55,6 +55,7 @@
 | **ANALYTICS** | | | |
 | GET | `/analytics/reorders-by-category` | Reordenes por categoría y hora | ❌ |
 | GET | `/analytics/order-peak-hours` | Análisis de horas pico de pedidos | ❌ |
+| GET | `/analytics/recharges` | Listar recargas de saldo (cuenta y hora) | ❌ |
 | **CONVERSIONES** | | | |
 | GET | `/conversiones/` | Convertir monto entre monedas | ❌ |
 | GET | `/conversiones/monedas` | Listar monedas soportadas | ❌ |
@@ -233,6 +234,8 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 **Errores posibles:**
 - **400 Bad Request:** El monto debe ser mayor a 0
 - **401 Unauthorized:** Token inválido o expirado
+
+**Registro de evento:** Cada recarga se registra con la cuenta y la hora. Puedes consultarlas en `GET /analytics/recharges`.
 
 ---
 
@@ -1235,6 +1238,40 @@ GET /analytics/order-peak-hours?start=2025-10-01T00:00:00Z&end=2025-10-31T23:59:
 - Las horas pico se determinan automáticamente como el top 25% de horas por volumen
 - Todos los tiempos se ajustan a la zona horaria especificada para análisis local
 - Si no hay pedidos, todos los contadores serán 0 y los valores por defecto
+
+
+### 💳 Recargas de Saldo (Cuenta y Hora)
+
+**Endpoint:** `GET /analytics/recharges`
+
+**Descripción:** Lista las recargas de saldo con la cuenta (usuario) y la hora en que se realizaron. Útil para auditoría, conciliaciones y análisis de comportamiento de recargas.
+
+**Autenticación:** No requerida (⚠️ En producción debería protegerse para personal autorizado)
+
+**Query Parameters:**
+- `start` (opcional, ISO-8601 UTC): Inicio del rango (incluyente). Por defecto, últimos 30 días
+- `end` (opcional, ISO-8601 UTC): Fin del rango (excluyente). Por defecto, ahora
+- `limit` (opcional, int, 1-1000, default=100): Límite de filas
+- `offset` (opcional, int, default=0): Desplazamiento para paginación
+
+**Respuesta exitosa (200):**
+```json
+[
+  {
+    "id": 12,
+    "usuario_id": 1,
+    "usuario_nombre": "Juan Pérez",
+    "usuario_email": "juan@test.com",
+    "monto": 50000.0,
+    "fecha_hora": "2025-10-31T20:15:04Z"
+  }
+]
+```
+
+**Notas:**
+- Solo verás eventos de recarga realizados a partir de esta actualización
+- La hora se guarda en UTC; convierte a local en el cliente si lo necesitas
+- Combina `start`/`end` con `limit`/`offset` para paginar
 
 
 ---

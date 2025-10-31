@@ -217,3 +217,13 @@ class OrderPeakHoursResponse(BaseModel):
     hourly_distribution: List[HourlyDistribution]
     peak_hours: List[int]
     summary: OrderPeakHoursSummary
+
+
+# --- Esquemas para Recargas ---
+class RecargaEventoResponse(BaseModel):
+    id: int
+    usuario_id: int
+    usuario_nombre: str
+    usuario_email: EmailStr
+    monto: float
+    fecha_hora: datetime

@@ -33,6 +33,7 @@ class Usuario(Base):
     # Relaciones
     compras = relationship("Compra", back_populates="usuario")
     encuesta = relationship("EncuestaSeatDelivery", back_populates="usuario", uselist=False)
+    recargas = relationship("RecargaSaldoEvento", back_populates="usuario")
 
 class TipoProducto(Base):
     __tablename__ = "tipos_producto"
@@ -111,3 +112,15 @@ class EncuestaSeatDelivery(Base):
 
     # Relaciones
     usuario = relationship("Usuario", back_populates="encuesta")
+
+
+class RecargaSaldoEvento(Base):
+    __tablename__ = "recargas_saldo"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_usuario = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    monto = Column(Float, nullable=False)
+    fecha_hora = Column(DateTime, default=func.now(), nullable=False)
+
+    # Relaciones
+    usuario = relationship("Usuario", back_populates="recargas")
