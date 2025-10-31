@@ -54,6 +54,7 @@
 | POST | `/compras/qr/escanear` | Escanear QR para entregar orden (Staff) | ❌* |
 | **ANALYTICS** | | | |
 | GET | `/analytics/reorders-by-category` | Reordenes por categoría y hora | ❌ |
+| GET | `/analytics/order-peak-hours` | Análisis de horas pico de pedidos | ❌ |
 | **CONVERSIONES** | | | |
 | GET | `/conversiones/` | Convertir monto entre monedas | ❌ |
 | GET | `/conversiones/monedas` | Listar monedas soportadas | ❌ |
@@ -1112,6 +1113,128 @@ const data = await response.json()
 - Se consideran compras con estado `PAGADO`, `EN_PREPARACION`, `LISTO` o `ENTREGADO`.
 - La hora se convierte a local usando `timezone_offset_minutes` antes de agrupar.
 - Útil para planear staffing y promociones por categoría y horario.
+
+---
+
+### 📈 Análisis de Horas Pico de Pedidos
+
+**Endpoint:** `GET /analytics/order-peak-hours`
+
+**Descripción:** Analiza las horas del día en las que se concentran los pedidos para identificar patrones de volumen de órdenes. Proporciona una distribución horaria completa con conteos, ingresos totales, valores promedio por hora, y identifica automáticamente las horas pico (top 25% por volumen). Incluye estadísticas resumidas como la hora más ocupada y la más tranquila.
+
+**Autenticación:** No requerida
+
+**Query Parameters:**
+- `start` (opcional, ISO-8601 UTC): Inicio del rango (incluyente). Por defecto, inicio del día actual en UTC.
+- `end` (opcional, ISO-8601 UTC): Fin del rango (excluyente). Por defecto, ahora.
+- `timezone_offset_minutes` (opcional, int, default=0): Offset de zona horaria del cliente en minutos (ej: `-300` para UTC-5/Bogotá). Se usa para agrupar por hora local.
+
+**Ejemplo de uso:**
+```
+GET /analytics/order-peak-hours?start=2025-10-01T00:00:00Z&end=2025-10-31T23:59:59Z&timezone_offset_minutes=-300
+```
+
+**Respuesta (200):**
+```json
+{
+  "start": "2025-10-01T00:00:00Z",
+  "end": "2025-10-31T23:59:59Z",
+  "timezone_offset_minutes": -300,
+  "hourly_distribution": [
+    {
+      "hour": 0,
+      "order_count": 2,
+      "total_revenue": 35000.0,
+      "avg_order_value": 17500.0,
+      "percentage": 1.2,
+      "is_peak": false
+    },
+    {
+      "hour": 18,
+      "order_count": 25,
+      "order_revenue": 425000.0,
+      "avg_order_value": 17000.0,
+      "percentage": 15.8,
+      "is_peak": true
+    },
+    {
+      "hour": 19,
+      "order_count": 32,
+      "total_revenue": 544000.0,
+      "avg_order_value": 17000.0,
+      "percentage": 20.3,
+      "is_peak": true
+    },
+    {
+      "hour": 20,
+      "order_count": 28,
+      "total_revenue": 476000.0,
+      "avg_order_value": 17000.0,
+      "percentage": 17.7,
+      "is_peak": true
+    }
+  ],
+  "peak_hours": [18, 19, 20, 21],
+  "summary": {
+    "total_orders": 158,
+    "peak_hours": [18, 19, 20, 21],
+    "peak_hour_range": "18:00 - 21:00",
+    "orders_in_peak_hours": 102,
+    "percentage_in_peak_hours": 64.6,
+    "busiest_hour": 19,
+    "busiest_hour_orders": 32,
+    "slowest_hour": 4,
+    "slowest_hour_orders": 0
+  }
+}
+```
+
+**Interpretación de los datos:**
+
+- **hourly_distribution**: Array de 24 elementos (0-23), uno por cada hora del día
+  - `hour`: Hora del día (0-23) en hora local del cliente
+  - `order_count`: Número de pedidos en esa hora
+  - `total_revenue`: Ingresos totales generados en esa hora
+  - `avg_order_value`: Valor promedio de los pedidos en esa hora
+  - `percentage`: Porcentaje del total de pedidos del periodo
+  - `is_peak`: true si la hora está en el top 25% por volumen
+
+- **peak_hours**: Lista de horas identificadas como pico (top 25% por volumen)
+
+- **summary**: Estadísticas resumidas del periodo
+  - `total_orders`: Total de pedidos en el periodo
+  - `peak_hours`: Horas pico identificadas
+  - `peak_hour_range`: Rango de horas pico en formato legible
+  - `orders_in_peak_hours`: Cantidad de pedidos durante horas pico
+  - `percentage_in_peak_hours`: Porcentaje de pedidos que ocurren en horas pico
+  - `busiest_hour`: Hora con más pedidos
+  - `busiest_hour_orders`: Cantidad de pedidos en la hora más ocupada
+  - `slowest_hour`: Hora con menos pedidos
+  - `slowest_hour_orders`: Cantidad de pedidos en la hora más tranquila
+
+**Casos de uso:**
+
+1. **Planificación de personal:**
+   - Identificar cuándo necesitas más staff en cocina y atención
+   - Ejemplo: Si las horas pico son 18:00-21:00, programa más personal
+
+2. **Optimización de inventario:**
+   - Preparar ingredientes y productos antes de las horas pico
+   - Evitar desabastecimiento en momentos críticos
+
+3. **Estrategias de promoción:**
+   - Crear ofertas especiales en horas de bajo volumen
+   - Ejemplo: "Happy Hour 14:00-17:00" para llenar horas tranquilas
+
+4. **Análisis de capacidad:**
+   - Evaluar si tu cocina puede manejar el volumen en horas pico
+   - Identificar cuellos de botella
+
+**Notas:**
+- Solo considera compras con estado `PAGADO`, `EN_PREPARACION`, `LISTO` o `ENTREGADO`
+- Las horas pico se determinan automáticamente como el top 25% de horas por volumen
+- Todos los tiempos se ajustan a la zona horaria especificada para análisis local
+- Si no hay pedidos, todos los contadores serán 0 y los valores por defecto
 
 
 ---
