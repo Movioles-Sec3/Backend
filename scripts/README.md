@@ -69,3 +69,28 @@ El script genera un archivo CSV con el nombre `compras_completadas_YYYYMMDD_HHMM
 - Si una compra no tiene todos los timestamps, mostrará `N/A` en esos campos
 - El archivo se genera con timestamp para evitar sobrescribir exports anteriores
 
+## 🛒 `export_product_popularity.py`
+
+### Descripción
+Genera un CSV con métricas de popularidad por producto (órdenes, unidades e ingresos).
+
+### Uso
+```bash
+# Desde la raíz del proyecto
+python scripts/export_product_popularity.py --limit 20  # --limit es opcional
+```
+
+### Salida
+El script crea un archivo `productos_populares_YYYYMMDD_HHMMSS.csv`.
+
+### Columnas del CSV
+
+| Columna | Descripción |
+|---------|-------------|
+| `product_id` | ID del producto |
+| `product_name` | Nombre |
+| `total_orders` | Compras distintas que lo incluyen |
+| `total_units` | Unidades vendidas (suma de cantidades) |
+| `total_revenue` | Ingresos totales registrados |
+| `first_order_at` | Primera compra entregada |
+| `last_order_at` | Compra entregada más reciente |
