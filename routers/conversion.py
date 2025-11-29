@@ -1,6 +1,10 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, status, Query
-from services.currency_service import convert_currency, get_supported_currencies
+from services.currency_service import (
+    convert_currency,
+    get_supported_currencies,
+    ExchangeRateServiceUnavailable,
+)
 
 router = APIRouter(prefix="/conversiones", tags=["conversiones"])
 
@@ -35,6 +39,11 @@ def convertir_moneda(
     try:
         resultado = convert_currency(monto, moneda_origen.upper(), moneda_destino.upper() if moneda_destino else None)
         return resultado
+    except ExchangeRateServiceUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No pudimos actualizar las tasas de cambio. Verifica tu conexión e inténtalo de nuevo más tarde."
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -60,6 +69,11 @@ def listar_monedas_soportadas():
             "monedas": monedas,
             "principales": ["COP", "USD", "EUR", "GBP", "MXN", "BRL", "ARS", "CLP"]
         }
+    except ExchangeRateServiceUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El listado de monedas no está disponible sin conexión. Intenta nuevamente cuando tengas internet."
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

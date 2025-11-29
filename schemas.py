@@ -219,6 +219,23 @@ class OrderPeakHoursResponse(BaseModel):
     summary: OrderPeakHoursSummary
 
 
+# --- Esquemas para búsquedas de productos ---
+class ProductSearchHourStat(BaseModel):
+    hour: int
+    search_count: int
+    percentage: float
+    is_peak: bool
+
+
+class ProductSearchAnalyticsResponse(BaseModel):
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    timezone_offset_minutes: int
+    total_searches: int
+    peak_hours: List[int]
+    hourly_distribution: List[ProductSearchHourStat]
+
+
 # --- Esquemas para Recargas ---
 class RecargaEventoResponse(BaseModel):
     id: int
@@ -227,3 +244,20 @@ class RecargaEventoResponse(BaseModel):
     usuario_email: EmailStr
     monto: float
     fecha_hora: datetime
+
+
+# --- Esquemas para categorías más solicitadas ---
+class MostRequestedCategoryStats(BaseModel):
+    categoria_id: int
+    categoria_nombre: str
+    total_orders: int
+    total_units: int
+    total_revenue: float
+    orders_percentage: float
+
+
+class MostRequestedCategoriesResponse(BaseModel):
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    total_orders: int
+    categories: List[MostRequestedCategoryStats]

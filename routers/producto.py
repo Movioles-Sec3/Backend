@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from database import get_db
-from models import Producto, TipoProducto, DetalleCompra
+from models import Producto, TipoProducto, DetalleCompra, EventoBusquedaProducto
 from schemas import (
     ProductoResponse, 
     ProductoCreate, 
@@ -93,6 +93,16 @@ def buscar_productos_por_nombre(
         .limit(limit)
         .all()
     )
+
+    # Registrar evento de búsqueda para analítica
+    evento = EventoBusquedaProducto(
+        termino=nombre,
+        disponible=disponible,
+        limite=limit,
+        resultados=len(productos)
+    )
+    db.add(evento)
+    db.commit()
 
     return productos
 
