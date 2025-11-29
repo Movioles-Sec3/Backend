@@ -94,3 +94,30 @@ El script crea un archivo `productos_populares_YYYYMMDD_HHMMSS.csv`.
 | `total_revenue` | Ingresos totales registrados |
 | `first_order_at` | Primera compra entregada |
 | `last_order_at` | Compra entregada más reciente |
+
+## 💳 `export_recharges_vs_purchases.py`
+
+### Descripción
+Exporta métricas por usuario para analizar la relación entre recargas y compras, e imprime correlaciones de Pearson.
+
+### Uso
+```bash
+# Desde la raíz del proyecto
+python scripts/export_recharges_vs_purchases.py
+```
+
+### Salida
+Genera `recargas_vs_compras_YYYYMMDD_HHMMSS.csv` y muestra en consola las correlaciones.
+
+### Columnas del CSV
+| Columna | Descripción |
+|---------|-------------|
+| `user_id` | ID del usuario |
+| `nombre` | Nombre |
+| `email` | Email |
+| `recharge_count` | Número de recargas |
+| `recharge_total` | Total recargado |
+| `purchase_count` | Número de compras |
+| `purchase_total` | Total comprado |
+| `recharge_avg` | Promedio por recarga |
+| `purchase_avg` | Promedio por compra |
