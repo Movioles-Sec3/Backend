@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from database import get_db
@@ -67,6 +67,34 @@ def obtener_productos_recomendados(
     
     # Retornar solo los productos (sin el conteo)
     return [producto for producto, count in productos]
+
+@router.get("/buscar", response_model=List[ProductoResponse])
+def buscar_productos_por_nombre(
+    nombre: str = Query(..., min_length=1, description="Texto a buscar en el nombre del producto"),
+    disponible: Optional[bool] = True,
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    Buscar productos por coincidencia parcial en el nombre.
+
+    Permite a la app filtrar el menú desde el front usando texto libre.
+    Por defecto solo trae productos disponibles; pasa `disponible=null` para incluir todos.
+    """
+    query = db.query(Producto)
+
+    if disponible is not None:
+        query = query.filter(Producto.disponible == disponible)
+
+    patron = f"%{nombre.lower()}%"
+    productos = (
+        query.filter(func.lower(Producto.nombre).like(patron))
+        .order_by(Producto.nombre.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return productos
 
 @router.get("/{producto_id}", response_model=ProductoResponse)
 def obtener_producto(producto_id: int, db: Session = Depends(get_db)):
