@@ -43,6 +43,7 @@
 | GET | `/productos/{producto_id}/conversiones` | Obtener precio del producto con conversiones | ❌ |
 | GET | `/productos/tipos/` | Listar categorías/tipos de producto | ❌ |
 | GET | `/productos/recomendados` | Obtener productos recomendados (más vendidos) | ❌ |
+| GET | `/productos/buscar` | Buscar productos por nombre | ❌ |
 | POST | `/productos/tipos/` | Crear nueva categoría (Admin) | ❌* |
 | POST | `/productos/` | Crear nuevo producto (Admin) | ❌* |
 | PUT | `/productos/{producto_id}` | Actualizar producto (Admin) | ❌* |
@@ -399,6 +400,62 @@ La API utiliza autenticación JWT (JSON Web Tokens) mediante el esquema Bearer.
 - Solo muestra productos disponibles
 
 **Nota:** Los productos se ordenan por popularidad (más vendidos primero). Si hay empate en ventas, se ordenan por ID. Funciona perfectamente incluso sin datos históricos de ventas.
+
+---
+
+### 🔎 Buscar Productos por Nombre
+
+**Endpoint:** `GET /productos/buscar`
+
+**Descripción:** Permite buscar productos por coincidencias parciales del nombre. Ideal para construir un buscador en el front que filtre mientras el usuario escribe.
+
+**Autenticación:** No requerida
+
+**Query Parameters:**
+- `nombre` (**requerido**): Texto a buscar. Debe tener al menos 1 caracter.
+- `disponible` (opcional, default=`true`): Si se fija en `null`, incluye todos los productos sin filtrar por disponibilidad.
+- `limit` (opcional, default=`20`, rango `1-100`): Número máximo de resultados a retornar.
+
+**Ejemplos de uso:**
+- `GET /productos/buscar?nombre=mojito`
+- `GET /productos/buscar?nombre=cola&disponible=false&limit=5`
+
+**Respuesta exitosa (200):**
+```json
+[
+  {
+    "id": 4,
+    "nombre": "Mojito",
+    "descripcion": "Ron blanco, menta, limón y soda",
+    "imagen_url": "https://api.lalicorera.com/storage/cocteles/recetas/86099316-mojito1.webp",
+    "precio": 15000.0,
+    "disponible": true,
+    "id_tipo": 2,
+    "tipo_producto": {
+      "id": 2,
+      "nombre": "Cócteles"
+    }
+  },
+  {
+    "id": 5,
+    "nombre": "Piña Colada",
+    "descripcion": "Ron, piña y coco",
+    "imagen_url": "https://api.lalicorera.com/storage/cocteles/recetas/86104877-pina-colada1.webp",
+    "precio": 18000.0,
+    "disponible": true,
+    "id_tipo": 2,
+    "tipo_producto": {
+      "id": 2,
+      "nombre": "Cócteles"
+    }
+  }
+]
+```
+
+**Notas:**
+- La búsqueda es **insensible a mayúsculas/minúsculas**.
+- Se pueden combinar parámetros para crear experiencias de autocompletado.
+- Los resultados se ordenan alfabéticamente por nombre.
 
 ---
 
