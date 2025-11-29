@@ -2,9 +2,18 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Tuple
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, desc
 from database import get_db
-from models import Compra, DetalleCompra, Producto, TipoProducto, EstadoCompra, RecargaSaldoEvento, Usuario
+from models import (
+    Compra,
+    DetalleCompra,
+    Producto,
+    TipoProducto,
+    EstadoCompra,
+    RecargaSaldoEvento,
+    Usuario,
+    EventoBusquedaProducto,
+)
 from schemas import (
     ReordersByCategoryResponse,
     CategoryReorderStats,
@@ -13,6 +22,10 @@ from schemas import (
     HourlyDistribution,
     OrderPeakHoursSummary,
     RecargaEventoResponse,
+    ProductSearchAnalyticsResponse,
+    ProductSearchHourStat,
+    MostRequestedCategoriesResponse,
+    MostRequestedCategoryStats,
 )
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -348,3 +361,170 @@ def listar_recargas(
         )
         for r in rows
     ]
+
+
+@router.get("/product-search-peak-hours", response_model=ProductSearchAnalyticsResponse)
+def product_search_peak_hours(
+    start: Optional[datetime] = Query(None, description="Start datetime (inclusive) in UTC"),
+    end: Optional[datetime] = Query(None, description="End datetime (exclusive) in UTC"),
+    timezone_offset_minutes: int = Query(
+        0, description="Client timezone offset from UTC in minutes (e.g., -300 for UTC-5)"
+    ),
+    db: Session = Depends(get_db)
+):
+    """
+    Analiza cuándo los usuarios buscan productos con mayor frecuencia.
+
+    Cuenta cada llamada al endpoint `/productos/buscar` y genera una distribución
+    horaria para entender en qué momentos del día ocurre más actividad de búsqueda.
+    """
+    now_utc = datetime.utcnow()
+    if end is None:
+        end = now_utc
+    if start is None:
+        start = end - timedelta(days=30)
+
+    eventos = (
+        db.query(EventoBusquedaProducto.creado_en)
+        .filter(EventoBusquedaProducto.creado_en >= start, EventoBusquedaProducto.creado_en < end)
+        .all()
+    )
+
+    total_searches = len(eventos)
+    hourly_counts = {hour: 0 for hour in range(24)}
+
+    def to_local_hour(dt: datetime, offset_min: int) -> int:
+        return ((dt + timedelta(minutes=offset_min)).hour) % 24
+
+    for (fecha_evento,) in eventos:
+        hora_local = to_local_hour(fecha_evento, timezone_offset_minutes)
+        hourly_counts[hora_local] += 1
+
+    hourly_distribution = []
+    for hour in range(24):
+        search_count = hourly_counts[hour]
+        percentage = (search_count / total_searches * 100) if total_searches > 0 else 0.0
+        hourly_distribution.append(
+            {
+                "hour": hour,
+                "search_count": search_count,
+                "percentage": round(percentage, 2),
+            }
+        )
+
+    if hourly_distribution:
+        counts_sorted = sorted((item["search_count"] for item in hourly_distribution), reverse=True)
+        if counts_sorted:
+            threshold_index = max(int(len(counts_sorted) * 0.25) - 1, 0)
+            threshold = counts_sorted[threshold_index] if counts_sorted else 0
+        else:
+            threshold = 0
+    else:
+        threshold = 0
+
+    peak_hours = []
+    product_search_stats = []
+    for item in hourly_distribution:
+        is_peak = item["search_count"] >= threshold and item["search_count"] > 0
+        if is_peak:
+            peak_hours.append(item["hour"])
+        product_search_stats.append(
+            ProductSearchHourStat(
+                hour=item["hour"],
+                search_count=item["search_count"],
+                percentage=item["percentage"],
+                is_peak=is_peak
+            )
+        )
+
+    return ProductSearchAnalyticsResponse(
+        start=start,
+        end=end,
+        timezone_offset_minutes=timezone_offset_minutes,
+        total_searches=total_searches,
+        peak_hours=peak_hours,
+        hourly_distribution=product_search_stats,
+    )
+
+
+@router.get("/most-requested-categories", response_model=MostRequestedCategoriesResponse)
+def most_requested_categories(
+    start: Optional[datetime] = Query(None, description="Start datetime (inclusive) in UTC"),
+    end: Optional[datetime] = Query(None, description="End datetime (exclusive) in UTC"),
+    limit: int = Query(5, ge=1, le=50, description="Number of top categories to return"),
+    db: Session = Depends(get_db),
+):
+    """
+    Identifica las categorías más solicitadas por los usuarios.
+
+    Calcula el total de órdenes, unidades y monto generado por categoría dentro del rango dado.
+    """
+    now_utc = datetime.utcnow()
+    if end is None:
+        end = now_utc
+    if start is None:
+        start = end - timedelta(days=30)
+
+    estados_validos = [
+        EstadoCompra.PAGADO,
+        EstadoCompra.EN_PREPARACION,
+        EstadoCompra.LISTO,
+        EstadoCompra.ENTREGADO,
+    ]
+
+    query = (
+        db.query(
+            TipoProducto.id.label("categoria_id"),
+            TipoProducto.nombre.label("categoria_nombre"),
+            func.count(func.distinct(Compra.id)).label("total_orders"),
+            func.coalesce(func.sum(DetalleCompra.cantidad), 0).label("total_units"),
+            func.coalesce(
+                func.sum(DetalleCompra.cantidad * DetalleCompra.precio_unitario_compra), 0.0
+            ).label("total_revenue"),
+        )
+        .select_from(TipoProducto)
+        .join(Producto, Producto.id_tipo == TipoProducto.id)
+        .join(DetalleCompra, DetalleCompra.id_producto == Producto.id)
+        .join(Compra, Compra.id == DetalleCompra.id_compra)
+        .filter(Compra.fecha_hora >= start, Compra.fecha_hora < end)
+        .filter(Compra.estado.in_(estados_validos))
+        .group_by(TipoProducto.id, TipoProducto.nombre)
+        .order_by(desc("total_orders"), desc("total_units"))
+    )
+
+    rows = query.all()
+    if not rows:
+        return MostRequestedCategoriesResponse(
+            start=start,
+            end=end,
+            total_orders=0,
+            categories=[],
+        )
+
+    total_orders_global = sum(row.total_orders for row in rows)
+    top_rows = rows[:limit] if limit else rows
+
+    categories_stats = []
+    for row in top_rows:
+        orders_percentage = (
+            round(row.total_orders / total_orders_global * 100, 2)
+            if total_orders_global
+            else 0.0
+        )
+        categories_stats.append(
+            MostRequestedCategoryStats(
+                categoria_id=row.categoria_id,
+                categoria_nombre=row.categoria_nombre,
+                total_orders=row.total_orders,
+                total_units=int(row.total_units or 0),
+                total_revenue=round(float(row.total_revenue or 0.0), 2),
+                orders_percentage=orders_percentage,
+            )
+        )
+
+    return MostRequestedCategoriesResponse(
+        start=start,
+        end=end,
+        total_orders=total_orders_global,
+        categories=categories_stats,
+    )

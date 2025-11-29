@@ -18,33 +18,43 @@ _cache = {
     "cache_duration": timedelta(hours=1)  # Cachear por 1 hora
 }
 
+
+class ExchangeRateServiceUnavailable(Exception):
+    """Señala que no se pudo obtener información del servicio externo de tasas."""
+
+
 def _fetch_exchange_rates(base_currency: str = "COP") -> Dict:
     """
     Obtiene las tasas de cambio desde la API.
     Usa cache para evitar llamadas excesivas.
     """
     # Verificar si hay cache válido
-    if (_cache["rates"] is not None and 
-        _cache["last_update"] is not None and 
-        datetime.now() - _cache["last_update"] < _cache["cache_duration"]):
+    if (
+        _cache["rates"] is not None
+        and _cache["last_update"] is not None
+        and datetime.now() - _cache["last_update"] < _cache["cache_duration"]
+    ):
         return _cache["rates"]
-    
+
     # Hacer llamada a la API
     try:
         response = requests.get(f"{BASE_URL}/latest/{base_currency}", timeout=5)
         response.raise_for_status()
         data = response.json()
-        
+
         if data.get("result") == "success":
             # Actualizar cache
             _cache["rates"] = data["conversion_rates"]
             _cache["last_update"] = datetime.now()
             return data["conversion_rates"]
-        else:
-            raise Exception(f"Error en la API: {data.get('error-type', 'Unknown error')}")
-    
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Error al consultar la API de tasas de cambio: {str(e)}")
+        raise ExchangeRateServiceUnavailable(
+            f"El servicio de tasas respondió con error: {data.get('error-type', 'desconocido')}"
+        )
+
+    except requests.exceptions.RequestException as exc:
+        raise ExchangeRateServiceUnavailable(
+            "No se pudo contactar con el servicio de tasas de cambio."
+        ) from exc
 
 def convert_currency(
     amount: float, 

@@ -56,7 +56,9 @@
 | **ANALYTICS** | | | |
 | GET | `/analytics/reorders-by-category` | Reordenes por categoría y hora | ❌ |
 | GET | `/analytics/order-peak-hours` | Análisis de horas pico de pedidos | ❌ |
+| GET | `/analytics/most-requested-categories` | Categorías más solicitadas por usuarios | ❌ |
 | GET | `/analytics/recharges` | Listar recargas de saldo (cuenta y hora) | ❌ |
+| GET | `/analytics/product-search-peak-hours` | Horas pico de búsquedas de productos | ❌ |
 | **CONVERSIONES** | | | |
 | GET | `/conversiones/` | Convertir monto entre monedas | ❌ |
 | GET | `/conversiones/monedas` | Listar monedas soportadas | ❌ |
@@ -1061,10 +1063,11 @@ const data = await response.json()
 ```
 
 **Errores posibles:**
+- **503 Service Unavailable:** No hay conexión al servicio externo de tasas (sin internet y sin cache disponible).
 - **400 Bad Request:** 
   - Monto debe ser mayor a 0
   - Moneda no soportada
-- **500 Internal Server Error:** Error al consultar la API externa de tasas de cambio
+- **500 Internal Server Error:** Error inesperado al consultar la API externa de tasas
 
 **Nota:** Las tasas se actualizan automáticamente cada hora. El sistema usa cache para evitar llamadas excesivas a la API externa.
 
@@ -1295,6 +1298,118 @@ GET /analytics/order-peak-hours?start=2025-10-01T00:00:00Z&end=2025-10-31T23:59:
 - Las horas pico se determinan automáticamente como el top 25% de horas por volumen
 - Todos los tiempos se ajustan a la zona horaria especificada para análisis local
 - Si no hay pedidos, todos los contadores serán 0 y los valores por defecto
+
+
+### 🏆 Categorías Más Solicitadas
+
+**Endpoint:** `GET /analytics/most-requested-categories`
+
+**Descripción:** Obtiene las categorías de productos más solicitadas por los usuarios dentro de un rango de fechas. Calcula el total de órdenes, unidades vendidas y el ingreso generado por cada categoría y ordena el resultado según el volumen de órdenes.
+
+**Autenticación:** No requerida
+
+**Query Parameters:**
+- `start` (opcional, ISO-8601 UTC): Inicio del rango (incluyente). Por defecto, últimos 30 días.
+- `end` (opcional, ISO-8601 UTC): Fin del rango (excluyente). Por defecto, ahora.
+- `limit` (opcional, int, default=5): Cantidad máxima de categorías a retornar (1-50).
+
+**Respuesta (200):**
+```json
+{
+  "start": "2025-10-01T00:00:00Z",
+  "end": "2025-10-31T23:59:59Z",
+  "total_orders": 128,
+  "categories": [
+    {
+      "categoria_id": 2,
+      "categoria_nombre": "Cócteles",
+      "total_orders": 56,
+      "total_units": 142,
+      "total_revenue": 2360000.0,
+      "orders_percentage": 43.75
+    },
+    {
+      "categoria_id": 1,
+      "categoria_nombre": "Cervezas",
+      "total_orders": 48,
+      "total_units": 118,
+      "total_revenue": 826000.0,
+      "orders_percentage": 37.5
+    }
+  ]
+}
+```
+
+**Interpretación:**
+- `total_orders`: Total de órdenes registradas en el periodo (todas las categorías dentro del rango).
+- `categories`: Lista ordenada por número de órdenes (descendente). Puede incluir menos elementos si no hay suficientes categorías.
+- `orders_percentage`: Porcentaje que representa la categoría respecto del total de órdenes del periodo.
+
+**Notas:**
+- Solo se consideran compras con estado `PAGADO`, `EN_PREPARACION`, `LISTO` o `ENTREGADO`.
+- Las unidades y montos se calculan a partir de los `DetalleCompra` registrados.
+- Si no hay compras en el rango, se devuelve una lista vacía y `total_orders = 0`.
+
+
+### 🔍 Horas Pico de Búsqueda de Productos
+
+**Endpoint:** `GET /analytics/product-search-peak-hours`
+
+**Descripción:** Analiza en qué horas del día los usuarios utilizan con mayor frecuencia el buscador de productos (`GET /productos/buscar`). Cada búsqueda se registra junto con sus filtros para construir la distribución horaria.
+
+**Autenticación:** No requerida
+
+**Query Parameters:**
+- `start` (opcional, ISO-8601 UTC): Inicio del rango (incluyente). Por defecto, últimos 30 días.
+- `end` (opcional, ISO-8601 UTC): Fin del rango (excluyente). Por defecto, ahora.
+- `timezone_offset_minutes` (opcional, int, default=0): Offset de la zona horaria del cliente en minutos (ej: `-300` para UTC-5/Bogotá). Permite ver las horas pico en el horario local del usuario.
+
+**Respuesta (200):**
+```json
+{
+  "start": "2025-10-01T00:00:00Z",
+  "end": "2025-10-31T23:59:59Z",
+  "timezone_offset_minutes": -300,
+  "total_searches": 542,
+  "peak_hours": [19, 20, 21],
+  "hourly_distribution": [
+    {
+      "hour": 18,
+      "search_count": 52,
+      "percentage": 9.59,
+      "is_peak": true
+    },
+    {
+      "hour": 19,
+      "search_count": 74,
+      "percentage": 13.65,
+      "is_peak": true
+    },
+    {
+      "hour": 20,
+      "search_count": 68,
+      "percentage": 12.55,
+      "is_peak": true
+    },
+    {
+      "hour": 21,
+      "search_count": 63,
+      "percentage": 11.62,
+      "is_peak": true
+    }
+  ]
+}
+```
+
+**Interpretación:**
+- `total_searches`: Total de búsquedas registradas en el periodo.
+- `hourly_distribution`: 24 entradas (horas 0-23) con el conteo y porcentaje de búsquedas por hora.
+- `peak_hours`: Horas destacadas como pico (top 25% por volumen, excluyendo ceros).
+
+**Notas:**
+- Los parámetros `nombre`, `disponible` y `limit` usados en la búsqueda se almacenan junto con el evento para futuros análisis.
+- Si no se encuentran datos en el rango solicitado, la respuesta seguirá incluyendo las 24 horas con `search_count` en 0.
+- Ideal para descubrir cuándo los usuarios exploran más el menú y coordinar campañas o recomendaciones dinámicas.
 
 
 ### 💳 Recargas de Saldo (Cuenta y Hora)

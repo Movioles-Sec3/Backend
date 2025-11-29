@@ -124,3 +124,14 @@ class RecargaSaldoEvento(Base):
 
     # Relaciones
     usuario = relationship("Usuario", back_populates="recargas")
+
+
+class EventoBusquedaProducto(Base):
+    __tablename__ = "eventos_busqueda_producto"
+
+    id = Column(Integer, primary_key=True, index=True)
+    termino = Column(String, nullable=False)
+    disponible = Column(Boolean, nullable=True)
+    limite = Column(Integer, nullable=True)
+    resultados = Column(Integer, nullable=False, default=0)
+    creado_en = Column(DateTime, default=func.now(), nullable=False)
